@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Key, UserPlus, Users, Shield, Settings, Building2 } from "lucide-react";
+import { Save, Key, UserPlus, Users, Shield, Building2, Loader2 } from "lucide-react";
 import { AdminPanel } from "@/components/admin/admin-panel";
 import { IntegrationsTab } from "@/components/settings/integrations-tab";
 
@@ -58,7 +58,6 @@ export default function SettingsPage() {
     { value: "general", label: "Général", icon: Building2 },
     ...(!isReader ? [{ value: "team", label: "Équipe", icon: Users }] : []),
     ...(canManageSettings ? [{ value: "integrations", label: "Intégrations", icon: Key }] : []),
-    ...(isAdmin ? [{ value: "admin", label: "Administration", icon: Shield }] : []),
   ];
 
   return (
@@ -134,33 +133,7 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Membres du projet</CardTitle>
-                <CardDescription>Les personnes ayant accès à « {projectName} »</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      {user?.avatarUrl ? (
-                        <img src={user.avatarUrl} alt={user.name} className="h-9 w-9 rounded-full object-cover" />
-                      ) : (
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">{initials}</div>
-                      )}
-                      <div>
-                        <p className="text-sm font-medium">{user?.name} <span className="text-xs text-muted-foreground">(vous)</span></p>
-                        <p className="text-xs text-muted-foreground">{user?.email}</p>
-                      </div>
-                    </div>
-                    <Badge variant="secondary">{ROLE_LABELS[user?.role || "client"]}</Badge>
-                  </div>
-                </div>
-                <p className="mt-4 text-xs text-muted-foreground">
-                  Les utilisateurs invités apparaîtront ici une fois l'invitation acceptée.
-                </p>
-              </CardContent>
-            </Card>
+            <ProjectTeamCard projectName={projectName} orgId={activeClient?.id} currentUserId={user?.id} />
           </TabsContent>
         )}
 
@@ -171,13 +144,70 @@ export default function SettingsPage() {
           </TabsContent>
         )}
 
-        {/* Admin panel — global, not per project */}
-        {isAdmin && (
-          <TabsContent value="admin">
-            <AdminPanel />
-          </TabsContent>
-        )}
       </Tabs>
     </div>
+  );
+}
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: "bg-red-100 text-red-700",
+  consultant: "bg-blue-100 text-blue-700",
+  client: "bg-emerald-100 text-emerald-700",
+  reader: "bg-gray-100 text-gray-700",
+};
+
+function ProjectTeamCard({ projectName, orgId, currentUserId }: { projectName: string; orgId?: string; currentUserId?: string }) {
+  const [members, setMembers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!orgId) return;
+    setLoading(true);
+    fetch(`/api/project-team?org_id=${orgId}`)
+      .then((r) => r.json())
+      .then((data) => setMembers(data.members || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [orgId]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Membres du projet</CardTitle>
+        <CardDescription>Toutes les personnes ayant acces a {projectName}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="flex justify-center py-4"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        ) : members.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucun membre</p>
+        ) : (
+          <div className="space-y-2">
+            {members.map((m) => {
+              const initials = m.name?.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) || "?";
+              return (
+                <div key={m.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
+                  <div className="flex items-center gap-3">
+                    {m.avatarUrl ? (
+                      <img src={m.avatarUrl} alt={m.name} className="h-8 w-8 rounded-full object-cover" />
+                    ) : (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">{initials}</div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">
+                        {m.name}
+                        {m.id === currentUserId && <span className="ml-1.5 text-[10px] text-muted-foreground">(vous)</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{m.email}</p>
+                    </div>
+                  </div>
+                  <Badge className={ROLE_COLORS[m.role] || "bg-gray-100 text-gray-700"}>{ROLE_LABELS[m.role]}</Badge>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -288,6 +288,78 @@ function KeywordTab() {
   );
 }
 
+function StackedPositionsChart({ data }: { data: any[] }) {
+  if (data.length < 2) return null;
+  const padding = { top: 8, right: 8, bottom: 28, left: 50 };
+  const w = 700;
+  const h = 220;
+  const chartW = w - padding.left - padding.right;
+  const chartH = h - padding.top - padding.bottom;
+
+  const parsed = data.map((d) => ({
+    date: d.search_date,
+    label: new Date(d.search_date).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
+    top3: d.top_3_positions || 0,
+    top10: (d.top_10_positions || 0) - (d.top_3_positions || 0),
+    top50: (d.top_50_positions || 0) - (d.top_10_positions || 0),
+    top100: (d.top_100_positions || 0) - (d.top_50_positions || 0),
+    total: d.top_100_positions || 0,
+  }));
+
+  const max = Math.max(...parsed.map((d) => d.total));
+  const barW = Math.max(2, (chartW / parsed.length) - 1);
+
+  const bands = [
+    { key: "top3" as const, color: "#10b981" },
+    { key: "top10" as const, color: "#3b82f6" },
+    { key: "top50" as const, color: "#f59e0b" },
+    { key: "top100" as const, color: "#f97316" },
+  ];
+
+  return (
+    <div>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }}>
+        {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
+          <g key={pct}>
+            <line x1={padding.left} y1={padding.top + chartH * (1 - pct)} x2={w - padding.right} y2={padding.top + chartH * (1 - pct)} stroke="#e5e7eb" strokeWidth="0.5" />
+            <text x={padding.left - 4} y={padding.top + chartH * (1 - pct) + 3} textAnchor="end" className="text-[8px] fill-muted-foreground">{formatNum(Math.round(max * pct))}</text>
+          </g>
+        ))}
+        {parsed.map((d, i) => {
+          const x = padding.left + (i / parsed.length) * chartW;
+          let y = padding.top + chartH;
+          return (
+            <g key={i}>
+              {bands.map((band) => {
+                const val = d[band.key];
+                const barH = max > 0 ? (val / max) * chartH : 0;
+                y -= barH;
+                return <rect key={band.key} x={x} y={y} width={barW} height={barH} fill={band.color} opacity="0.8" rx="0.5" />;
+              })}
+              {i % Math.max(1, Math.floor(parsed.length / 8)) === 0 && (
+                <text x={x + barW / 2} y={h - 6} textAnchor="middle" className="text-[8px] fill-muted-foreground">{d.label}</text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      <div className="flex items-center justify-center gap-4 mt-2">
+        {[
+          { label: "Top 1-3", color: "#10b981" },
+          { label: "Top 4-10", color: "#3b82f6" },
+          { label: "Top 11-50", color: "#f59e0b" },
+          { label: "Top 51-100", color: "#f97316" },
+        ].map((l) => (
+          <div key={l.label} className="flex items-center gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: l.color }} />
+            <span className="text-[10px] text-muted-foreground">{l.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DomainTab() {
   const [domain, setDomain] = useState("");
   const [loading, setLoading] = useState(false);
@@ -297,7 +369,8 @@ function DomainTab() {
   const [positions, setPositions] = useState<any[]>([]);
   const [totalPositions, setTotalPositions] = useState(0);
   const [positionPage, setPositionPage] = useState(1);
-  const [domainSubTab, setDomainSubTab] = useState<"keywords" | "pages" | "visibility">("keywords");
+  const [competitors, setCompetitors] = useState<any[]>([]);
+  const [domainSubTab, setDomainSubTab] = useState<"overview" | "keywords" | "pages" | "competitors">("overview");
 
   async function handleSearch() {
     if (!domain.trim()) return;
@@ -305,8 +378,9 @@ function DomainTab() {
     setError("");
     setPositions([]);
     setData(null);
+    setCompetitors([]);
     try {
-      const [overviewRes, posRes] = await Promise.all([
+      const [overviewRes, posRes, compRes] = await Promise.all([
         haloscanCall("domains/overview", {
           input: domain.trim(),
           mode: "domain",
@@ -320,11 +394,17 @@ function DomainTab() {
           order_by: "traffic",
           order: "desc",
         }),
+        haloscanCall("domains/siteCompetitors", {
+          input: domain.trim(),
+          mode: "domain",
+          lineCount: 10,
+        }).catch(() => ({ results: [] })),
       ]);
       setData(overviewRes);
       setPositions(posRes.results || []);
       setTotalPositions(posRes.total_result_count || posRes.filtered_result_count || 0);
       setPositionPage(1);
+      setCompetitors(compRes.results || []);
     } catch {
       setError("Erreur lors de l'analyse. Verifiez le domaine et votre cle API.");
     } finally {
@@ -352,8 +432,9 @@ function DomainTab() {
   }
 
   const stats = data?.metrics?.stats;
+  const posBreakdown = data?.positions_breakdown_history?.results || [];
   const visHistory = (data?.visibility_index_history?.results || []).map((p: any) => ({
-    label: new Date(p.agg_date).toLocaleDateString("fr-FR", { month: "short", day: "numeric" }),
+    label: new Date(p.agg_date).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
     value: p.visibility_index || 0,
   }));
   const bestPages = data?.best_pages?.results || [];
@@ -366,7 +447,7 @@ function DomainTab() {
             <div className="relative flex-1">
               <Globe className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Entrez un domaine (ex: quitoque.fr)"
+                placeholder="Entrez un domaine (ex: izac.fr, celio.com)"
                 value={domain}
                 onChange={(e) => setDomain(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -387,6 +468,7 @@ function DomainTab() {
 
       {stats && (
         <>
+          {/* KPIs */}
           <div className="grid grid-cols-4 gap-4">
             {[
               { label: "Mots cles", value: formatNum(stats.total_keyword_count) },
@@ -403,6 +485,7 @@ function DomainTab() {
             ))}
           </div>
 
+          {/* Position distribution */}
           <div className="grid grid-cols-4 gap-3">
             {[
               { label: "Top 3", value: stats.top_3_positions, color: "bg-emerald-500" },
@@ -420,11 +503,36 @@ function DomainTab() {
             ))}
           </div>
 
+          {/* Stacked positions history chart */}
+          {posBreakdown.length > 2 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Evolution des positions de {domain}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <StackedPositionsChart data={posBreakdown} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Visibility */}
+          {visHistory.length > 2 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Indice de visibilite de {domain}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LineChart data={visHistory} height={180} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Sub-tabs */}
           <div className="flex gap-1 border-b border-border">
             {[
-              { id: "keywords" as const, label: `Mots cles positionnes (${totalPositions > 0 ? formatNum(totalPositions) : positions.length})` },
-              { id: "pages" as const, label: `Meilleures pages (${bestPages.length})` },
-              { id: "visibility" as const, label: "Courbe de visibilite" },
+              { id: "keywords" as const, label: `Top mots cles (${Math.min(positions.length, 300)})` },
+              { id: "pages" as const, label: `Top pages (${bestPages.length})` },
+              { id: "competitors" as const, label: `Concurrents (${competitors.length})` },
             ].map((t) => (
               <button key={t.id} onClick={() => setDomainSubTab(t.id)} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${domainSubTab === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
                 {t.label}
@@ -434,12 +542,12 @@ function DomainTab() {
 
           {domainSubTab === "keywords" && (
             <div className="space-y-3">
-              <KeywordTable data={positions} showPosition showTraffic showUrl />
-              {positions.length < totalPositions && (
-                <div className="flex items-center justify-center gap-3">
+              <KeywordTable data={positions.slice(0, 300)} showPosition showTraffic showUrl />
+              {positions.length < Math.min(totalPositions, 300) && (
+                <div className="flex items-center justify-center">
                   <Button variant="outline" onClick={loadMorePositions} disabled={loadingMore} className="gap-2">
                     {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Charger plus ({positions.length} / {formatNum(totalPositions)})
+                    Charger plus ({positions.length} / {formatNum(Math.min(totalPositions, 300))})
                   </Button>
                 </div>
               )}
@@ -455,7 +563,7 @@ function DomainTab() {
                     <span className="text-right">Mots cles</span>
                     <span className="text-right">Trafic</span>
                   </div>
-                  {bestPages.map((page: any, i: number) => (
+                  {bestPages.slice(0, 100).map((page: any, i: number) => (
                     <div key={i} className="grid grid-cols-[1fr_100px_100px] gap-4 px-4 py-2.5 hover:bg-muted/30 transition-colors">
                       <span className="truncate text-sm text-primary">{page.url}</span>
                       <span className="text-right text-sm">{formatNum(page.unique_keywords)}</span>
@@ -467,13 +575,30 @@ function DomainTab() {
             </Card>
           )}
 
-          {domainSubTab === "visibility" && visHistory.length > 0 && (
+          {domainSubTab === "competitors" && competitors.length > 0 && (
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Indice de visibilite de {domain}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <LineChart data={visHistory} height={220} />
+              <CardContent className="p-0">
+                <div className="divide-y divide-border">
+                  <div className="grid grid-cols-[1fr_100px_100px_100px_80px] gap-4 px-4 py-2 bg-muted/50 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    <span>Concurrent</span>
+                    <span className="text-right">Mots cles</span>
+                    <span className="text-right">Trafic</span>
+                    <span className="text-right">Mots cles communs</span>
+                    <span className="text-right">Visibilite</span>
+                  </div>
+                  {competitors.map((comp: any, i: number) => (
+                    <div key={i} className="grid grid-cols-[1fr_100px_100px_100px_80px] gap-4 px-4 py-3 hover:bg-muted/30 transition-colors items-center">
+                      <div>
+                        <p className="text-sm font-medium">{comp.domain}</p>
+                        <p className="text-[11px] text-muted-foreground">{formatNum(comp.positions)} positions</p>
+                      </div>
+                      <span className="text-right text-sm">{formatNum(comp.keywords)}</span>
+                      <span className="text-right text-sm font-medium">{formatNum(comp.total_traffic)}</span>
+                      <span className="text-right text-sm">{formatNum(comp.common_keywords)}</span>
+                      <span className="text-right text-sm font-medium">{comp.visibility_index}</span>
+                    </div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}
@@ -483,7 +608,7 @@ function DomainTab() {
       {!stats && !loading && !error && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Globe className="h-12 w-12 text-muted-foreground/30 mb-4" />
-          <p className="text-sm text-muted-foreground">Entrez un domaine pour analyser ses performances SEO</p>
+          <p className="text-sm text-muted-foreground">Entrez n'importe quel domaine pour analyser ses performances SEO</p>
         </div>
       )}
     </div>

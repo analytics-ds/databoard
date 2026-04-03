@@ -8,6 +8,7 @@ import { handleInvite } from "./api/invite";
 import { handleSeed } from "./api/seed";
 import { handleAvatar } from "./api/avatar";
 import { handleIntegrations } from "./api/integrations";
+import { handleProjectTeam } from "./api/project-team";
 
 export interface Env {
   DB: D1Database;
@@ -71,6 +72,11 @@ export default {
     // Integrations (per-org)
     if (path === "/api/integrations" && (request.method === "GET" || request.method === "POST")) {
       return handleIntegrations(request, env);
+    }
+
+    // Project team members
+    if (path === "/api/project-team" && request.method === "GET") {
+      return handleProjectTeam(request, env);
     }
 
     // Seed test data (temporary, remove in production)
