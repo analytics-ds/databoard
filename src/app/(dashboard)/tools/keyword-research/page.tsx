@@ -103,7 +103,7 @@ function KeywordTab() {
         }),
         haloscanCall("keywords/match", {
           keyword: query.trim(),
-          lineCount: 50,
+          lineCount: 100,
           order_by: "volume",
           order: "desc",
         }),
@@ -261,22 +261,32 @@ function DomainTab() {
     setLoading(true);
     setError("");
     try {
-      const [overviewRes, positionsRes] = await Promise.all([
-        haloscanCall("domains/overview", {
+      const overviewRes = await haloscanCall("domains/overview", {
+        input: domain.trim(),
+        mode: "domain",
+        requested_data: ["metrics", "best_keywords", "best_pages", "visibility_index_history", "positions_breakdown_history"],
+      });
+      setData(overviewRes);
+
+      // Load all positions with pagination
+      let allPositions: any[] = [];
+      let page = 1;
+      let hasNext = true;
+      while (hasNext) {
+        const res = await haloscanCall("domains/positions", {
           input: domain.trim(),
           mode: "domain",
-          requested_data: ["metrics", "best_keywords", "best_pages", "visibility_index_history", "positions_breakdown_history"],
-        }),
-        haloscanCall("domains/positions", {
-          input: domain.trim(),
-          mode: "domain",
-          lineCount: 50,
+          lineCount: 100,
+          page,
           order_by: "traffic",
           order: "desc",
-        }),
-      ]);
-      setData(overviewRes);
-      setPositions(positionsRes.results || []);
+        });
+        const results = res.results || [];
+        allPositions = [...allPositions, ...results];
+        hasNext = results.length === 100 && allPositions.length < 5000; // safety cap
+        page++;
+      }
+      setPositions(allPositions);
     } catch {
       setError("Erreur lors de l'analyse. Vérifiez le domaine et votre clé API.");
     } finally {

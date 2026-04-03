@@ -30,6 +30,13 @@ export async function handleRegister(request: Request, env: Env): Promise<Respon
       }
     }
 
+    // Check blocked emails
+    const blocked = await env.DB.prepare("SELECT id FROM blocked_emails WHERE email = ?")
+      .bind(email.toLowerCase()).first();
+    if (blocked) {
+      return jsonResponse({ error: "Cette adresse email n'est pas autorisée à créer un compte" }, 403);
+    }
+
     // Check email uniqueness
     const existing = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
       .bind(email.toLowerCase()).first();
