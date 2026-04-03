@@ -10,7 +10,7 @@ pages_build_output_dir = "./out"
 [[d1_databases]]
 binding = "DB"
 database_name = "databoard-db"
-database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
+database_id = "1af6b5d0-a66f-4606-a228-d608a79f9fc9"
 
 # After creating the DB, run migrations:
 #   npx wrangler d1 execute databoard-db --remote --file=migrations/0001_init.sql
