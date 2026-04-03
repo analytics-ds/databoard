@@ -14,7 +14,7 @@ import { Save, User, Key, Globe, BarChart3, Search, Satellite, UserPlus, Users, 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrateur",
   consultant: "Consultant",
-  client: "Client",
+  client: "Propriétaire",
   reader: "Lecteur",
 };
 
