@@ -1,13 +1,16 @@
 import {
-  Search,
+  LayoutDashboard,
+  TrendingUp,
   BarChart3,
+  Search,
   Wrench,
-  KanbanSquare,
-  Bell,
-  Link,
+  Link2,
   FileText,
-  Globe,
+  ListChecks,
+  Bell,
   Settings,
+  FolderOpen,
+  Globe,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,65 +39,95 @@ export type NavItem = {
   children?: { title: string; href: string; disabled?: boolean }[];
 };
 
-export const NAV_ITEMS: NavItem[] = [
+export interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+export const NAV_SECTIONS: NavSection[] = [
   {
-    title: "Suivi de mots clés",
-    href: "/keywords",
-    icon: Search,
-    children: [
-      { title: "Tous les mots clés", href: "/keywords" },
-      { title: "Répartition des positions", href: "/keywords/positions" },
-      { title: "Visibilité", href: "/keywords/visibility" },
+    label: "",
+    items: [
+      {
+        title: "Tableau de bord",
+        href: "/dashboard",
+        icon: LayoutDashboard,
+      },
     ],
   },
   {
-    title: "Trafic et conversion",
-    href: "/traffic",
-    icon: BarChart3,
-  },
-  {
-    title: "Outils SEO",
-    href: "/tools",
-    icon: Wrench,
-    children: [
-      { title: "Recherche de mots clés", href: "/tools/keyword-research" },
-      { title: "GEO Monitoring", href: "/tools/geo", disabled: true },
+    label: "Visibilité",
+    items: [
+      {
+        title: "Mes positions",
+        href: "/keywords",
+        icon: TrendingUp,
+        children: [
+          { title: "Vue d'ensemble", href: "/keywords" },
+          { title: "Répartition", href: "/keywords/positions" },
+          { title: "Évolution", href: "/keywords/visibility" },
+        ],
+      },
+      {
+        title: "Mon trafic",
+        href: "/traffic",
+        icon: BarChart3,
+      },
     ],
   },
   {
-    title: "Netlinking",
-    href: "/netlinking",
-    icon: Link,
-    children: [
-      { title: "Backlinks", href: "/netlinking" },
-      { title: "Campagnes", href: "/netlinking/campaigns" },
+    label: "Actions",
+    items: [
+      {
+        title: "Contenus",
+        href: "/content",
+        icon: FileText,
+      },
+      {
+        title: "Liens & partenariats",
+        href: "/netlinking",
+        icon: Link2,
+        children: [
+          { title: "Tous les liens", href: "/netlinking" },
+          { title: "Campagnes", href: "/netlinking/campaigns" },
+        ],
+      },
+      {
+        title: "Tâches",
+        href: "/projects",
+        icon: ListChecks,
+        children: [
+          { title: "Kanban", href: "/projects" },
+          { title: "Documents", href: "/projects/docs" },
+        ],
+      },
     ],
   },
   {
-    title: "Contenu",
-    href: "/content",
-    icon: FileText,
-  },
-  {
-    title: "Suivi de projet",
-    href: "/projects",
-    icon: KanbanSquare,
-    children: [
-      { title: "Tâches", href: "/projects" },
-      { title: "Documents", href: "/projects/docs" },
+    label: "Outils",
+    items: [
+      {
+        title: "Recherche de mots clés",
+        href: "/tools/keyword-research",
+        icon: Search,
+      },
+      {
+        title: "GEO Monitoring",
+        href: "/tools/geo",
+        icon: Globe,
+        disabled: true,
+      },
     ],
-  },
-  {
-    title: "Alertes",
-    href: "/alerts",
-    icon: Bell,
-    badge: 3,
   },
 ];
 
 export const BOTTOM_NAV: NavItem[] = [
+  { title: "Alertes", href: "/alerts", icon: Bell, badge: 3 },
   { title: "Paramètres", href: "/settings", icon: Settings },
 ];
+
+// Keep flat NAV_ITEMS for backward compat (topbar etc.)
+export const NAV_ITEMS: NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);
 
 // ── Position colors ───────────────────────────────────────
 export const POSITION_COLORS = {

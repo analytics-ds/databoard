@@ -6,6 +6,7 @@ import { handleHaloscan } from "./api/haloscan";
 import { handleAdminClients } from "./api/admin-clients";
 import { handleInvite } from "./api/invite";
 import { handleSeed } from "./api/seed";
+import { handleAvatar } from "./api/avatar";
 
 export interface Env {
   DB: D1Database;
@@ -59,6 +60,11 @@ export default {
     // Invitation routes
     if (path === "/api/invite" && request.method === "POST") {
       return handleInvite(request, env);
+    }
+
+    // Avatar upload
+    if (path === "/api/avatar" && request.method === "PUT") {
+      return handleAvatar(request, env);
     }
 
     // Seed test data (temporary, remove in production)

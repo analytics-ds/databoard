@@ -18,6 +18,13 @@ export const metadata: Metadata = {
     template: "%s | Databoard",
   },
   description: "Plateforme SEO tout-en-un par datashake",
+  icons: {
+    icon: [
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-64.png", sizes: "64x64", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({

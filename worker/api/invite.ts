@@ -16,12 +16,36 @@ export async function handleInvite(request: Request, env: Env): Promise<Response
   }
 
   const body = await request.json() as any;
-  const { email, role } = body;
+  const { email, role, orgId: targetOrgId } = body;
 
   if (!email) return jsonResponse({ error: "Email requis" }, 400);
 
-  // Client can only invite readers
-  const inviteRole = payload.role === "client" ? "reader" : (role || "reader");
+  // Determine target org and invite role based on the inviter's role
+  let inviteOrgId: string;
+  let inviteRole: string;
+
+  if (payload.role === "client") {
+    // Client invites readers to their own org only
+    inviteOrgId = payload.orgId;
+    inviteRole = "reader";
+  } else if (payload.role === "consultant") {
+    // Consultant must specify a target org and must be assigned to it
+    if (!targetOrgId) {
+      return jsonResponse({ error: "Organisation cible requise" }, 400);
+    }
+    const hasAccess = await env.DB.prepare(
+      "SELECT id FROM consultant_clients WHERE consultant_id = ? AND org_id = ?"
+    ).bind(payload.userId, targetOrgId).first();
+    if (!hasAccess) {
+      return jsonResponse({ error: "Vous n'avez pas accès à cette organisation" }, 403);
+    }
+    inviteOrgId = targetOrgId;
+    inviteRole = role || "reader";
+  } else {
+    // Admin can invite to any org
+    inviteOrgId = targetOrgId || payload.orgId;
+    inviteRole = role || "reader";
+  }
 
   // Check email not already registered
   const existing = await env.DB.prepare("SELECT id FROM users WHERE email = ?")
@@ -37,7 +61,7 @@ export async function handleInvite(request: Request, env: Env): Promise<Response
 
   await env.DB.prepare(
     "INSERT INTO invitations (id, org_id, email, role, token, invited_by, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(id, payload.orgId, email.toLowerCase(), inviteRole, inviteToken, payload.userId, expires, now).run();
+  ).bind(id, inviteOrgId, email.toLowerCase(), inviteRole, inviteToken, payload.userId, expires, now).run();
 
   return jsonResponse({
     success: true,

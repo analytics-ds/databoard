@@ -6,16 +6,20 @@ import { Bell, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 const PAGE_TITLES: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/keywords": "Suivi de mots clés",
-  "/traffic": "Trafic et conversion",
+  "/dashboard": "Tableau de bord",
+  "/keywords": "Mes positions",
+  "/keywords/positions": "Répartition des positions",
+  "/keywords/visibility": "Évolution",
+  "/traffic": "Mon trafic",
   "/tools/keyword-research": "Recherche de mots clés",
-  "/projects": "Suivi de projet",
-  "/content": "Contenu",
-  "/netlinking": "Netlinking",
-  "/netlinking/campaigns": "Campagnes netlinking",
+  "/tools/geo": "GEO Monitoring",
+  "/projects": "Tâches",
+  "/content": "Contenus",
+  "/netlinking": "Liens & partenariats",
+  "/netlinking/campaigns": "Campagnes",
   "/alerts": "Alertes",
   "/settings": "Paramètres",
+  "/clients": "Clients",
 };
 
 export function Topbar() {

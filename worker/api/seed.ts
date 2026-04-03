@@ -1,8 +1,23 @@
 import type { Env } from "../index";
-import { hashPassword, jsonResponse } from "../utils";
+import { hashPassword, verifyJWT, parseCookies, jsonResponse } from "../utils";
 
-// Temporary endpoint to seed test data. Remove in production.
+// Temporary endpoint to seed test data. Admin only.
 export async function handleSeed(request: Request, env: Env): Promise<Response> {
+  // Auth check - admin only
+  const cookieHeader = request.headers.get("Cookie") || "";
+  const cookies = parseCookies(cookieHeader);
+  const token = cookies["databoard_session"];
+
+  // Allow first seed without auth (bootstrap), then require admin
+  const userCount = await env.DB.prepare("SELECT COUNT(*) as count FROM users").first<{ count: number }>();
+  if (userCount && userCount.count > 0) {
+    if (!token) return jsonResponse({ error: "Non authentifié" }, 401);
+    const payload = await verifyJWT(token, env.JWT_SECRET);
+    if (!payload || payload.role !== "admin") {
+      return jsonResponse({ error: "Accès réservé aux administrateurs" }, 403);
+    }
+  }
+
   const now = new Date().toISOString();
   const testPassword = await hashPassword("Test1234!");
 
@@ -30,6 +45,11 @@ export async function handleSeed(request: Request, env: Env): Promise<Response> 
       "INSERT OR IGNORE INTO users (id, org_id, name, email, password_hash, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     ).bind(`user-${c.id}`, c.id, c.user, c.email, testPassword, "client", now, now).run();
   }
+
+  // Admin user (Pierre - datashake org)
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO users (id, org_id, name, email, password_hash, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind("user-pierre", "org-datashake", "Pierre Gaudard", "pierre@datashake.fr", testPassword, "admin", now, now).run();
 
   // Consultant users (belong to datashake org)
   const consultants = [
@@ -67,11 +87,6 @@ export async function handleSeed(request: Request, env: Env): Promise<Response> 
       clientUsers: clients.length,
       consultants: consultants.length,
       assignments: assignments.reduce((acc, a) => acc + a.orgs.length, 0),
-    },
-    testCredentials: {
-      password: "Test1234!",
-      consultants: consultants.map(c => c.email),
-      clients: clients.map(c => c.email),
     },
   });
 }

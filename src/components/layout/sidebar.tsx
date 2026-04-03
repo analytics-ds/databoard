@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS, BOTTOM_NAV } from "@/lib/constants";
+import { NAV_SECTIONS, BOTTOM_NAV } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
-import { ChevronLeft, ChevronRight, ChevronDown, LogOut, Zap, Building2, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, LogOut, Building2, Check } from "lucide-react";
 import { useState } from "react";
 
 export function Sidebar() {
@@ -30,14 +31,18 @@ export function Sidebar() {
       )}
     >
       {/* Logo */}
-      <div className="flex h-14 items-center gap-3 border-b border-sidebar-border px-4">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-          <Zap className="h-4 w-4" />
-        </div>
+      <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
+        <Image
+          src="/datashake-icon.jpeg"
+          alt="Datashake"
+          width={36}
+          height={36}
+          className="shrink-0 rounded-lg"
+        />
         {!collapsed && (
           <div className="flex flex-col">
-            <span className="text-sm font-bold tracking-tight text-white">Databoard</span>
-            <span className="text-[9px] uppercase tracking-widest text-sidebar-foreground/50">
+            <span className="text-[15px] font-bold tracking-tight text-white">Databoard</span>
+            <span className="text-[9px] uppercase tracking-[0.15em] text-sidebar-foreground/40">
               by datashake
             </span>
           </div>
@@ -57,7 +62,7 @@ export function Sidebar() {
                   <Building2 className="h-4 w-4 text-sidebar-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-white">{activeClient?.name || "Sélectionner"}</p>
+                  <p className="truncate text-sm font-medium text-white">{activeClient?.name || "Sélectionner un client"}</p>
                   {activeClient?.domain && (
                     <p className="truncate text-[11px] text-sidebar-foreground/50">{activeClient.domain}</p>
                   )}
@@ -101,67 +106,87 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Navigation */}
+      {/* Navigation sections */}
       <nav className="flex-1 overflow-y-auto px-3 py-3">
-        <ul className="space-y-0.5">
-          {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-            const hasChildren = item.children && item.children.length > 0;
-            const isSubmenuOpen = openSubmenu === item.href || isActive;
+        {NAV_SECTIONS.map((section, sIdx) => (
+          <div key={sIdx} className={cn(sIdx > 0 && "mt-5")}>
+            {/* Section label */}
+            {!collapsed && section.label && (
+              <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
+                {section.label}
+              </p>
+            )}
+            {collapsed && sIdx > 0 && (
+              <div className="mx-3 mb-2 border-t border-sidebar-border" />
+            )}
 
-            return (
-              <li key={item.href}>
-                <div className="flex items-center">
-                  <Link
-                    href={item.disabled ? "#" : item.href}
-                    className={cn(
-                      "flex flex-1 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-sidebar-accent text-white"
-                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-white",
-                      item.disabled && "pointer-events-none opacity-40"
-                    )}
-                    onClick={() => hasChildren && setOpenSubmenu(isSubmenuOpen ? null : item.href)}
-                  >
-                    <item.icon className="h-[18px] w-[18px] shrink-0" />
-                    {!collapsed && <span className="flex-1">{item.title}</span>}
-                    {!collapsed && item.badge !== undefined && item.badge > 0 && (
-                      <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                        {item.badge}
-                      </span>
-                    )}
-                    {!collapsed && hasChildren && (
-                      <ChevronDown className={cn("h-3 w-3 text-sidebar-foreground/40 transition-transform", isSubmenuOpen && "rotate-180")} />
-                    )}
-                  </Link>
-                </div>
+            <ul className="space-y-0.5">
+              {section.items.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                const hasChildren = item.children && item.children.length > 0;
+                const isSubmenuOpen = openSubmenu === item.href || isActive;
 
-                {!collapsed && hasChildren && isSubmenuOpen && (
-                  <ul className="mt-0.5 ml-5 space-y-0.5 border-l border-sidebar-border pl-3">
-                    {item.children!.map((child) => {
-                      const isChildActive = pathname === child.href;
-                      return (
-                        <li key={child.href}>
-                          <Link
-                            href={child.href}
-                            className={cn(
-                              "block rounded-md px-3 py-1.5 text-[13px] transition-colors",
-                              isChildActive ? "text-white font-medium" : "text-sidebar-foreground/50 hover:text-white"
-                            )}
-                          >
-                            {child.title}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+                return (
+                  <li key={item.href}>
+                    <div className="flex items-center">
+                      <Link
+                        href={item.disabled ? "#" : (hasChildren ? item.children![0].href : item.href)}
+                        className={cn(
+                          "flex flex-1 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          isActive
+                            ? "bg-sidebar-accent text-white"
+                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-white",
+                          item.disabled && "pointer-events-none opacity-40"
+                        )}
+                        onClick={(e) => {
+                          if (hasChildren) {
+                            e.preventDefault();
+                            setOpenSubmenu(isSubmenuOpen ? null : item.href);
+                          }
+                        }}
+                      >
+                        <item.icon className="h-[18px] w-[18px] shrink-0" />
+                        {!collapsed && <span className="flex-1">{item.title}</span>}
+                        {!collapsed && item.badge !== undefined && item.badge > 0 && (
+                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                            {item.badge}
+                          </span>
+                        )}
+                        {!collapsed && hasChildren && (
+                          <ChevronDown className={cn("h-3 w-3 text-sidebar-foreground/40 transition-transform", isSubmenuOpen && "rotate-180")} />
+                        )}
+                      </Link>
+                    </div>
 
-        <div className="mt-4 border-t border-sidebar-border pt-3">
+                    {!collapsed && hasChildren && isSubmenuOpen && (
+                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l border-sidebar-border pl-3">
+                        {item.children!.map((child) => {
+                          const isChildActive = pathname === child.href;
+                          return (
+                            <li key={child.href}>
+                              <Link
+                                href={child.href}
+                                className={cn(
+                                  "block rounded-md px-3 py-1.5 text-[13px] transition-colors",
+                                  isChildActive ? "text-white font-medium" : "text-sidebar-foreground/50 hover:text-white"
+                                )}
+                              >
+                                {child.title}
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+
+        {/* Bottom nav (Alertes, Paramètres) */}
+        <div className="mt-5 border-t border-sidebar-border pt-3">
           {BOTTOM_NAV.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
@@ -174,29 +199,42 @@ export function Sidebar() {
                 )}
               >
                 <item.icon className="h-[18px] w-[18px] shrink-0" />
-                {!collapsed && <span>{item.title}</span>}
+                {!collapsed && <span className="flex-1">{item.title}</span>}
+                {!collapsed && item.badge !== undefined && item.badge > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}
         </div>
       </nav>
 
-      {/* User */}
+      {/* User profile */}
       <div className="border-t border-sidebar-border p-3">
         <div className={cn("flex items-center gap-3", collapsed ? "justify-center" : "px-3 py-2")}>
           <Link href="/settings" className="flex items-center gap-3 flex-1 min-w-0 group">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-xs font-bold text-white group-hover:ring-2 group-hover:ring-sidebar-primary/50 transition-all">
-              {initials}
-            </div>
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name}
+                className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-transparent group-hover:ring-sidebar-primary/50 transition-all"
+              />
+            ) : (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sidebar-primary to-blue-400 text-xs font-bold text-white group-hover:ring-2 group-hover:ring-sidebar-primary/50 transition-all">
+                {initials}
+              </div>
+            )}
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="truncate text-sm font-medium text-white group-hover:text-sidebar-primary transition-colors">{user?.name}</p>
-                <p className="truncate text-xs text-sidebar-foreground/50 capitalize">{user?.role}</p>
+                <p className="truncate text-[11px] text-sidebar-foreground/40 capitalize">{user?.role}</p>
               </div>
             )}
           </Link>
           {!collapsed && (
-            <button onClick={logout} className="text-sidebar-foreground/50 hover:text-white transition-colors" title="Déconnexion">
+            <button onClick={logout} className="text-sidebar-foreground/40 hover:text-white transition-colors" title="Déconnexion">
               <LogOut className="h-4 w-4" />
             </button>
           )}

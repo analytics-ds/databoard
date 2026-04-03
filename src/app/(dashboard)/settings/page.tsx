@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, User, Key, Globe, BarChart3, Search, Satellite, UserPlus, Users, Shield } from "lucide-react";
+import { Save, User, Key, Globe, BarChart3, Search, Satellite, UserPlus, Users, Shield, Camera, Trash2 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrateur",
@@ -18,11 +18,99 @@ const ROLE_LABELS: Record<string, string> = {
   reader: "Lecteur",
 };
 
+function compressImage(file: File, maxSize: number = 128): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+
+        // Scale down to maxSize x maxSize
+        if (width > height) {
+          if (width > maxSize) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function SettingsPage() {
-  const { user, organization, isAdmin, isClient, canManageSettings } = useAuth();
+  const { user, organization, isAdmin, isClient, canManageSettings, refresh } = useAuth();
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteStatus, setInviteStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const initials = user?.name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "?";
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) return;
+
+    setAvatarLoading(true);
+    try {
+      const dataUrl = await compressImage(file, 128);
+      const res = await fetch("/api/avatar", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl: dataUrl }),
+      });
+      if (res.ok) {
+        await refresh();
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setAvatarLoading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setAvatarLoading(true);
+    try {
+      const res = await fetch("/api/avatar", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl: null }),
+      });
+      if (res.ok) {
+        await refresh();
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setAvatarLoading(false);
+    }
+  }
 
   async function handleInvite() {
     if (!inviteEmail.trim()) return;
@@ -70,6 +158,72 @@ export default function SettingsPage() {
 
         {/* Profile */}
         <TabsContent value="profile" className="space-y-6">
+          {/* Avatar card */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Photo de profil</CardTitle>
+              <CardDescription>Votre photo sera visible par votre équipe</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-6">
+                <div className="relative group">
+                  {user?.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.name}
+                      className="h-20 w-20 rounded-full object-cover ring-2 ring-border"
+                    />
+                  ) : (
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-primary to-blue-400 text-xl font-bold text-white ring-2 ring-border">
+                      {initials}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={avatarLoading}
+                    className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Camera className="h-5 w-5 text-white" />
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={avatarLoading}
+                      className="gap-2"
+                    >
+                      <Camera className="h-4 w-4" />
+                      {user?.avatarUrl ? "Changer" : "Ajouter une photo"}
+                    </Button>
+                    {user?.avatarUrl && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAvatarRemove}
+                        disabled={avatarLoading}
+                        className="gap-2 text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Supprimer
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">JPG, PNG ou GIF. 2 Mo max.</p>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Informations personnelles</CardTitle>
@@ -166,9 +320,13 @@ export default function SettingsPage() {
                 {/* Current user */}
                 <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                      {user?.name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)}
-                    </div>
+                    {user?.avatarUrl ? (
+                      <img src={user.avatarUrl} alt={user.name} className="h-9 w-9 rounded-full object-cover" />
+                    ) : (
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                        {initials}
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-medium">{user?.name}</p>
                       <p className="text-xs text-muted-foreground">{user?.email}</p>
