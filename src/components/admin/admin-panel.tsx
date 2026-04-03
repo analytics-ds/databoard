@@ -3,11 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  Users, Building2, Link2, Unlink, Search, ChevronDown, Loader2,
+  Users, Building2, Link2, Search, ChevronDown, Loader2, Check, RefreshCw,
 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -57,10 +56,11 @@ export function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleDropdownOpen, setRoleDropdownOpen] = useState<string | null>(null);
-  const [assignDropdownOpen, setAssignDropdownOpen] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (silent = false) => {
     try {
       const res = await fetch("/api/admin/clients");
       if (res.ok) {
@@ -68,17 +68,31 @@ export function AdminPanel() {
         setUsers(data.users || []);
         setOrganizations(data.organizations || []);
         setAssignments(data.assignments || []);
+        setLastRefresh(new Date());
       }
     } catch {
       // silently fail
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  async function manualRefresh() {
+    setRefreshing(true);
+    await fetchData(true);
+    setRefreshing(false);
+  }
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    function handleClick() { setRoleDropdownOpen(null); }
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
 
   async function handleSetRole(userId: string, role: string) {
     setActionLoading(userId);
@@ -88,36 +102,27 @@ export function AdminPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "set_role", userId, role }),
       });
-      await fetchData();
+      await fetchData(true);
     } finally {
       setActionLoading(null);
       setRoleDropdownOpen(null);
     }
   }
 
-  async function handleAssign(consultantId: string, orgId: string) {
-    setActionLoading(`assign-${consultantId}-${orgId}`);
+  async function toggleAssignment(consultantId: string, orgId: string, isAssigned: boolean) {
+    const key = `${consultantId}-${orgId}`;
+    setActionLoading(key);
     try {
       await fetch("/api/admin/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "assign", consultantId, orgId }),
+        body: JSON.stringify({
+          action: isAssigned ? "unassign" : "assign",
+          consultantId,
+          orgId,
+        }),
       });
-      await fetchData();
-    } finally {
-      setActionLoading(null);
-    }
-  }
-
-  async function handleUnassign(consultantId: string, orgId: string) {
-    setActionLoading(`unassign-${consultantId}-${orgId}`);
-    try {
-      await fetch("/api/admin/clients", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "unassign", consultantId, orgId }),
-      });
-      await fetchData();
+      await fetchData(true);
     } finally {
       setActionLoading(null);
     }
@@ -173,21 +178,30 @@ export function AdminPanel() {
               <CardTitle>Tous les utilisateurs</CardTitle>
               <CardDescription>{users.length} comptes enregistrés</CardDescription>
             </div>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Rechercher..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={manualRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+                Actualiser
+              </button>
+              <div className="relative w-56">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Rechercher..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-8 text-sm"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-lg border border-border">
-            {/* Header */}
-            <div className="grid grid-cols-[1fr_1fr_140px_1fr_100px] gap-4 border-b border-border bg-muted/50 px-4 py-2.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <div className="grid grid-cols-[1fr_1fr_130px_1fr_90px] gap-4 border-b border-border bg-muted/50 px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
               <span>Utilisateur</span>
               <span>Email</span>
               <span>Rôle</span>
@@ -195,63 +209,48 @@ export function AdminPanel() {
               <span>Inscrit le</span>
             </div>
 
-            {/* Rows */}
             {filteredUsers.length === 0 ? (
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                 Aucun utilisateur trouvé
               </div>
             ) : (
               filteredUsers.map((u) => {
-                const initials = u.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2);
+                const initials = u.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
                 const isCurrentUser = u.id === user?.id;
 
                 return (
                   <div
                     key={u.id}
-                    className="grid grid-cols-[1fr_1fr_140px_1fr_100px] items-center gap-4 border-b border-border px-4 py-3 last:border-b-0 hover:bg-muted/30 transition-colors"
+                    className="grid grid-cols-[1fr_1fr_130px_1fr_90px] items-center gap-4 border-b border-border px-4 py-2.5 last:border-b-0 hover:bg-muted/30 transition-colors"
                   >
-                    {/* Name */}
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       {u.avatar_url ? (
-                        <img src={u.avatar_url} alt={u.name} className="h-8 w-8 shrink-0 rounded-full object-cover" />
+                        <img src={u.avatar_url} alt={u.name} className="h-7 w-7 shrink-0 rounded-full object-cover" />
                       ) : (
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
                           {initials}
                         </div>
                       )}
                       <span className="truncate text-sm font-medium">
                         {u.name}
-                        {isCurrentUser && (
-                          <span className="ml-1.5 text-xs text-muted-foreground">(vous)</span>
-                        )}
+                        {isCurrentUser && <span className="ml-1 text-[10px] text-muted-foreground">(vous)</span>}
                       </span>
                     </div>
 
-                    {/* Email */}
                     <span className="truncate text-sm text-muted-foreground">{u.email}</span>
 
-                    {/* Role */}
-                    <div className="relative">
+                    <div className="relative" onClick={(e) => e.stopPropagation()}>
                       {isCurrentUser ? (
                         <Badge className={ROLE_COLORS[u.role]}>{ROLE_LABELS[u.role]}</Badge>
                       ) : (
                         <>
                           <button
                             onClick={() => setRoleDropdownOpen(roleDropdownOpen === u.id ? null : u.id)}
-                            className="flex items-center gap-1.5"
+                            className="flex items-center gap-1"
                             disabled={actionLoading === u.id}
                           >
                             <Badge className={`${ROLE_COLORS[u.role]} cursor-pointer hover:opacity-80`}>
-                              {actionLoading === u.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                ROLE_LABELS[u.role]
-                              )}
+                              {actionLoading === u.id ? <Loader2 className="h-3 w-3 animate-spin" /> : ROLE_LABELS[u.role]}
                             </Badge>
                             <ChevronDown className="h-3 w-3 text-muted-foreground" />
                           </button>
@@ -262,7 +261,7 @@ export function AdminPanel() {
                                 <button
                                   key={role}
                                   onClick={() => handleSetRole(u.id, role)}
-                                  className={`flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted first:rounded-t-lg last:rounded-b-lg ${
+                                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted first:rounded-t-lg last:rounded-b-lg ${
                                     u.role === role ? "font-medium text-primary" : ""
                                   }`}
                                 >
@@ -276,16 +275,10 @@ export function AdminPanel() {
                       )}
                     </div>
 
-                    {/* Organization */}
                     <span className="truncate text-sm text-muted-foreground">{u.org_name || "—"}</span>
 
-                    {/* Date */}
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(u.created_at).toLocaleDateString("fr-FR", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                    <span className="text-[11px] text-muted-foreground">
+                      {new Date(u.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}
                     </span>
                   </div>
                 );
@@ -295,100 +288,115 @@ export function AdminPanel() {
         </CardContent>
       </Card>
 
-      {/* Consultant assignments */}
+      {/* Consultant ↔ Client matrix */}
       {consultants.length > 0 && clientOrgs.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Assignation des consultants</CardTitle>
             <CardDescription>
-              Gérez quels consultants ont accès à quels clients
+              Cochez/décochez pour assigner un consultant à un client. Les modifications sont instantanées et synchronisées.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {consultants.map((consultant) => {
-                const assignedOrgIds = assignments
-                  .filter((a) => a.consultant_id === consultant.id)
-                  .map((a) => a.org_id);
-                const assignedOrgs = clientOrgs.filter((o) => assignedOrgIds.includes(o.id));
-                const unassignedOrgs = clientOrgs.filter((o) => !assignedOrgIds.includes(o.id));
-
-                return (
-                  <div key={consultant.id} className="rounded-lg border border-border p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      {consultant.avatar_url ? (
-                        <img src={consultant.avatar_url} alt={consultant.name} className="h-8 w-8 rounded-full object-cover" />
-                      ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
-                          {consultant.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-medium">{consultant.name}</p>
-                        <p className="text-xs text-muted-foreground">{consultant.email}</p>
-                      </div>
-                      <Badge className="ml-auto bg-blue-100 text-blue-700">
-                        {assignedOrgs.length} client{assignedOrgs.length > 1 ? "s" : ""}
-                      </Badge>
-                    </div>
-
-                    {/* Assigned clients */}
-                    <div className="flex flex-wrap gap-2">
-                      {assignedOrgs.map((org) => (
-                        <button
-                          key={org.id}
-                          onClick={() => handleUnassign(consultant.id, org.id)}
-                          disabled={actionLoading === `unassign-${consultant.id}-${org.id}`}
-                          className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-colors group"
-                          title="Cliquer pour retirer"
-                        >
-                          <Building2 className="h-3 w-3" />
-                          {org.name}
-                          <Unlink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity text-red-500" />
-                        </button>
-                      ))}
-
-                      {/* Add assignment dropdown */}
-                      {unassignedOrgs.length > 0 && (
-                        <div className="relative">
-                          <button
-                            onClick={() =>
-                              setAssignDropdownOpen(
-                                assignDropdownOpen === consultant.id ? null : consultant.id
-                              )
-                            }
-                            className="flex items-center gap-1 rounded-full border border-dashed border-border px-3 py-1 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-                          >
-                            <Link2 className="h-3 w-3" />
-                            Ajouter un client
-                          </button>
-
-                          {assignDropdownOpen === consultant.id && (
-                            <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-lg border border-border bg-card shadow-lg">
-                              {unassignedOrgs.map((org) => (
-                                <button
-                                  key={org.id}
-                                  onClick={() => {
-                                    handleAssign(consultant.id, org.id);
-                                    setAssignDropdownOpen(null);
-                                  }}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted first:rounded-t-lg last:rounded-b-lg"
-                                >
-                                  <Building2 className="h-3 w-3 text-muted-foreground" />
-                                  {org.name}
-                                  {org.domain && (
-                                    <span className="ml-auto text-[10px] text-muted-foreground">{org.domain}</span>
-                                  )}
-                                </button>
-                              ))}
+            <div className="rounded-lg border border-border overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="sticky left-0 z-10 bg-muted/50 px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground min-w-[200px]">
+                      Client
+                    </th>
+                    {consultants.map((c) => (
+                      <th key={c.id} className="px-3 py-2.5 text-center min-w-[100px]">
+                        <div className="flex flex-col items-center gap-1">
+                          {c.avatar_url ? (
+                            <img src={c.avatar_url} alt={c.name} className="h-7 w-7 rounded-full object-cover" />
+                          ) : (
+                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-[10px] font-bold text-blue-700">
+                              {c.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
                             </div>
                           )}
+                          <span className="text-[11px] font-medium text-foreground leading-tight">{c.name.split(" ")[0]}</span>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                      </th>
+                    ))}
+                    <th className="px-3 py-2.5 text-center text-[11px] font-medium uppercase tracking-wider text-muted-foreground min-w-[60px]">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientOrgs.map((org) => {
+                    const assignedConsultantCount = assignments.filter((a) => a.org_id === org.id).length;
+                    return (
+                      <tr key={org.id} className="border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors">
+                        <td className="sticky left-0 z-10 bg-card px-4 py-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-[10px] font-bold text-muted-foreground">
+                              {org.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">{org.name}</p>
+                              {org.domain && <p className="truncate text-[10px] text-muted-foreground">{org.domain}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        {consultants.map((c) => {
+                          const isAssigned = assignments.some(
+                            (a) => a.consultant_id === c.id && a.org_id === org.id
+                          );
+                          const key = `${c.id}-${org.id}`;
+                          const isLoading = actionLoading === key;
+
+                          return (
+                            <td key={c.id} className="px-3 py-2 text-center">
+                              <button
+                                onClick={() => toggleAssignment(c.id, org.id, isAssigned)}
+                                disabled={isLoading}
+                                className={`mx-auto flex h-7 w-7 items-center justify-center rounded-md border transition-all ${
+                                  isAssigned
+                                    ? "border-primary bg-primary text-white hover:bg-primary/80"
+                                    : "border-border bg-card hover:border-primary/50 hover:bg-primary/5"
+                                }`}
+                              >
+                                {isLoading ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : isAssigned ? (
+                                  <Check className="h-3.5 w-3.5" />
+                                ) : null}
+                              </button>
+                            </td>
+                          );
+                        })}
+                        <td className="px-3 py-2 text-center">
+                          <span className={`text-xs font-medium ${assignedConsultantCount > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                            {assignedConsultantCount}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {/* Summary row */}
+                  <tr className="bg-muted/30">
+                    <td className="sticky left-0 z-10 bg-muted/30 px-4 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                      Total clients
+                    </td>
+                    {consultants.map((c) => {
+                      const count = assignments.filter((a) => a.consultant_id === c.id).length;
+                      return (
+                        <td key={c.id} className="px-3 py-2 text-center">
+                          <span className={`text-xs font-bold ${count > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                            {count}
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td className="px-3 py-2 text-center">
+                      <span className="text-xs font-bold text-primary">{assignments.length}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </CardContent>
         </Card>
