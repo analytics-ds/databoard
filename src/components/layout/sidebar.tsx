@@ -213,7 +213,7 @@ export function Sidebar() {
       {/* User profile — compact */}
       <div className="border-t border-sidebar-border px-2.5 py-2">
         <div className={cn("flex items-center gap-2.5", collapsed ? "justify-center" : "px-2.5")}>
-          <Link href="/settings" className="flex items-center gap-2.5 flex-1 min-w-0 group">
+          <Link href="/profile" className="flex items-center gap-2.5 flex-1 min-w-0 group">
             {user?.avatarUrl ? (
               <img
                 src={user.avatarUrl}

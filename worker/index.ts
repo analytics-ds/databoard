@@ -7,6 +7,7 @@ import { handleAdminClients } from "./api/admin-clients";
 import { handleInvite } from "./api/invite";
 import { handleSeed } from "./api/seed";
 import { handleAvatar } from "./api/avatar";
+import { handleIntegrations } from "./api/integrations";
 
 export interface Env {
   DB: D1Database;
@@ -65,6 +66,11 @@ export default {
     // Avatar upload
     if (path === "/api/avatar" && request.method === "PUT") {
       return handleAvatar(request, env);
+    }
+
+    // Integrations (per-org)
+    if (path === "/api/integrations" && (request.method === "GET" || request.method === "POST")) {
+      return handleIntegrations(request, env);
     }
 
     // Seed test data (temporary, remove in production)

@@ -123,7 +123,7 @@ export const NAV_SECTIONS: NavSection[] = [
 
 export const BOTTOM_NAV: NavItem[] = [
   { title: "Alertes", href: "/alerts", icon: Bell, badge: 3 },
-  { title: "Paramètres", href: "/settings", icon: Settings },
+  { title: "Paramètres du projet", href: "/settings", icon: Settings },
 ];
 
 // Keep flat NAV_ITEMS for backward compat (topbar etc.)

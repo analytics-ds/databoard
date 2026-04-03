@@ -18,7 +18,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/netlinking": "Liens & partenariats",
   "/netlinking/campaigns": "Campagnes",
   "/alerts": "Alertes",
-  "/settings": "Paramètres",
+  "/settings": "Paramètres du projet",
+  "/profile": "Mon profil",
   "/clients": "Clients",
 };
 
