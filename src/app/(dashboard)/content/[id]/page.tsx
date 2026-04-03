@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 
-// For V1, redirect to new content editor
-// In V2, this will load the actual content by ID
+export function generateStaticParams() {
+  return [{ id: "1" }, { id: "2" }, { id: "3" }, { id: "4" }, { id: "5" }];
+}
+
 export default function ContentDetailPage() {
   redirect("/content/new");
 }
