@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Save, User, Key, Globe, BarChart3, Search, Satellite, UserPlus, Users, Shield, Camera, Trash2 } from "lucide-react";
+import { AdminPanel } from "@/components/admin/admin-panel";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "Administrateur",
@@ -418,24 +419,8 @@ export default function SettingsPage() {
 
         {/* Admin panel */}
         {isAdmin && (
-          <TabsContent value="admin" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Panel d'administration</CardTitle>
-                <CardDescription>
-                  Gérez les consultants, les clients et les assignations
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Ici vous pourrez assigner des consultants à des clients, changer les rôles des utilisateurs
-                  et voir tous les comptes de la plateforme.
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Cette section sera activée quand vous aurez des consultants et des clients enregistrés.
-                </p>
-              </CardContent>
-            </Card>
+          <TabsContent value="admin">
+            <AdminPanel />
           </TabsContent>
         )}
       </Tabs>

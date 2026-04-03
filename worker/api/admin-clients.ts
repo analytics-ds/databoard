@@ -13,33 +13,31 @@ export async function handleAdminClients(request: Request, env: Env): Promise<Re
   if (payload.role !== "admin") return jsonResponse({ error: "Accès refusé" }, 403);
 
   if (request.method === "GET") {
-    // Get all clients with their assigned consultants
     const orgs = await env.DB.prepare(
       "SELECT id, name, domain, created_at FROM organizations ORDER BY name"
     ).all();
 
-    const consultants = await env.DB.prepare(
-      "SELECT id, name, email, avatar_url FROM users WHERE role = 'consultant'"
+    const users = await env.DB.prepare(
+      "SELECT u.id, u.name, u.email, u.role, u.avatar_url, u.org_id, u.created_at, o.name as org_name FROM users u LEFT JOIN organizations o ON u.org_id = o.id ORDER BY u.created_at DESC"
     ).all();
 
     const assignments = await env.DB.prepare(
-      `SELECT cc.consultant_id, cc.org_id
-       FROM consultant_clients cc`
+      "SELECT cc.consultant_id, cc.org_id FROM consultant_clients cc"
     ).all();
 
     return jsonResponse({
       organizations: orgs.results || [],
-      consultants: consultants.results || [],
+      users: users.results || [],
       assignments: assignments.results || [],
     });
   }
 
   if (request.method === "POST") {
     const body = await request.json() as any;
-    const { action, consultantId, orgId } = body;
+    const { action } = body;
 
     if (action === "assign") {
-      // Assign consultant to client
+      const { consultantId, orgId } = body;
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
       await env.DB.prepare(
@@ -49,7 +47,7 @@ export async function handleAdminClients(request: Request, env: Env): Promise<Re
     }
 
     if (action === "unassign") {
-      // Remove consultant from client
+      const { consultantId, orgId } = body;
       await env.DB.prepare(
         "DELETE FROM consultant_clients WHERE consultant_id = ? AND org_id = ?"
       ).bind(consultantId, orgId).run();
@@ -57,12 +55,12 @@ export async function handleAdminClients(request: Request, env: Env): Promise<Re
     }
 
     if (action === "set_role") {
-      // Change a user's role (admin only)
       const { userId, role } = body;
       if (!["admin", "consultant", "client", "reader"].includes(role)) {
         return jsonResponse({ error: "Rôle invalide" }, 400);
       }
-      await env.DB.prepare("UPDATE users SET role = ? WHERE id = ?").bind(role, userId).run();
+      await env.DB.prepare("UPDATE users SET role = ?, updated_at = ? WHERE id = ?")
+        .bind(role, new Date().toISOString(), userId).run();
       return jsonResponse({ success: true });
     }
 
