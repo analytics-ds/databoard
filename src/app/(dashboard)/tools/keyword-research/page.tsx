@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useStudy } from "@/lib/study-context";
+import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,7 +28,7 @@ interface KeywordResult {
 }
 
 export default function KeywordResearchPage() {
-  const { currentStudy } = useStudy();
+  const { organization } = useAuth();
   const [query, setQuery] = useState("");
   const [excludeTerms, setExcludeTerms] = useState<string[]>([]);
   const [excludeInput, setExcludeInput] = useState("");
@@ -80,15 +80,15 @@ export default function KeywordResearchPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Recherche de mots cl\u00e9s"
-        description={`Trouvez de nouvelles opportunit\u00e9s pour ${currentStudy.clientName}`}
+        title="Recherche de mots clés"
+        description={`Trouvez de nouvelles opportunités pour ${organization?.name || ""}`}
       />
 
       <Tabs defaultValue="similar">
         <TabsList>
-          <TabsTrigger value="similar">Par mots cl\u00e9s similaires</TabsTrigger>
+          <TabsTrigger value="similar">Par mots clés similaires</TabsTrigger>
           <TabsTrigger value="site">Par site</TabsTrigger>
-          <TabsTrigger value="volumes">R\u00e9cup\u00e9rer les volumes</TabsTrigger>
+          <TabsTrigger value="volumes">Récupérer les volumes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="similar">
@@ -97,7 +97,7 @@ export default function KeywordResearchPage() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_auto]">
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
-                    <Label className="shrink-0 w-20">Mot cl\u00e9</Label>
+                    <Label className="shrink-0 w-20">Mot clé</Label>
                     <Input
                       placeholder="Entrez valeur"
                       value={query}
@@ -118,7 +118,7 @@ export default function KeywordResearchPage() {
                         </Badge>
                       ))}
                       <Input
-                        placeholder="+ Exclure mot cl\u00e9"
+                        placeholder="+ Exclure mot clé"
                         value={excludeInput}
                         onChange={(e) => setExcludeInput(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && addExclude()}
@@ -175,10 +175,10 @@ export default function KeywordResearchPage() {
           <Card>
             <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
-                <Label>Mots cl\u00e9s (un par ligne)</Label>
+                <Label>Mots clés (un par ligne)</Label>
                 <textarea className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="pizza&#10;recette lasagnes&#10;batch cooking" />
               </div>
-              <Button className="gap-2"><Search className="h-4 w-4" />R\u00e9cup\u00e9rer les volumes</Button>
+              <Button className="gap-2"><Search className="h-4 w-4" />Récupérer les volumes</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -191,7 +191,7 @@ export default function KeywordResearchPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[350px]">Mot cl\u00e9</TableHead>
+                  <TableHead className="w-[350px]">Mot clé</TableHead>
                   <TableHead className="text-right">Volume</TableHead>
                   <TableHead className="text-right">CPC</TableHead>
                   <TableHead className="text-right">Concurrence</TableHead>
@@ -209,7 +209,7 @@ export default function KeywordResearchPage() {
                 ) : filteredResults.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                      Aucun r\u00e9sultat
+                      Aucun résultat
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -217,7 +217,7 @@ export default function KeywordResearchPage() {
                     <TableRow key={result.keyword}>
                       <TableCell className="font-medium">{result.keyword}</TableCell>
                       <TableCell className="text-right font-mono">{result.volume.toLocaleString("fr-FR")}</TableCell>
-                      <TableCell className="text-right font-mono">{result.cpc.toFixed(2)} \u20ac</TableCell>
+                      <TableCell className="text-right font-mono">{result.cpc.toFixed(2)} €</TableCell>
                       <TableCell className="text-right font-mono">{(result.competition * 100).toFixed(0)}%</TableCell>
                       <TableCell className="text-right">
                         <Button variant="outline" size="sm" className="h-7 text-xs gap-1">

@@ -4,16 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS, BOTTOM_NAV } from "@/lib/constants";
-import { useStudy } from "@/lib/study-context";
-import { ChevronLeft, ChevronRight, ChevronDown, LogOut, Zap, Check } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { ChevronLeft, ChevronRight, ChevronDown, LogOut, Zap, Building2 } from "lucide-react";
 import { useState } from "react";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { currentStudy, setCurrentStudy, studies } = useStudy();
+  const { user, organization, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
-  const [studyOpen, setStudyOpen] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+
+  const initials = user?.name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) || "?";
 
   return (
     <aside
@@ -37,44 +43,19 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Study Selector */}
-      {!collapsed && (
+      {/* Organization info */}
+      {!collapsed && organization && (
         <div className="border-b border-sidebar-border p-3">
-          <div className="relative">
-            <button
-              onClick={() => setStudyOpen(!studyOpen)}
-              className="flex w-full items-center justify-between rounded-lg bg-sidebar-accent px-3 py-2.5 text-left transition-colors hover:bg-sidebar-accent/80"
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-white">
-                  {currentStudy.clientName} - {currentStudy.name}
-                </p>
-                <p className="truncate text-[11px] text-sidebar-foreground/50">
-                  {currentStudy.domain}
-                </p>
-              </div>
-              <ChevronDown className={cn("ml-2 h-4 w-4 shrink-0 text-sidebar-foreground/50 transition-transform", studyOpen && "rotate-180")} />
-            </button>
-
-            {studyOpen && (
-              <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-sidebar-border bg-sidebar shadow-xl">
-                {studies.map((study) => (
-                  <button
-                    key={study.id}
-                    onClick={() => { setCurrentStudy(study); setStudyOpen(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-sidebar-accent/50 first:rounded-t-lg last:rounded-b-lg"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-white">{study.clientName} - {study.name}</p>
-                      <p className="truncate text-[11px] text-sidebar-foreground/50">{study.domain}</p>
-                    </div>
-                    {study.id === currentStudy.id && (
-                      <Check className="h-4 w-4 shrink-0 text-sidebar-primary" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="flex items-center gap-2.5 rounded-lg bg-sidebar-accent px-3 py-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary/20">
+              <Building2 className="h-4 w-4 text-sidebar-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-white">{organization.name}</p>
+              {organization.domain && (
+                <p className="truncate text-[11px] text-sidebar-foreground/50">{organization.domain}</p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -114,7 +95,6 @@ export function Sidebar() {
                   </Link>
                 </div>
 
-                {/* Submenu */}
                 {!collapsed && hasChildren && isSubmenuOpen && (
                   <ul className="mt-0.5 ml-5 space-y-0.5 border-l border-sidebar-border pl-3">
                     {item.children!.map((child) => {
@@ -125,9 +105,7 @@ export function Sidebar() {
                             href={child.href}
                             className={cn(
                               "block rounded-md px-3 py-1.5 text-[13px] transition-colors",
-                              isChildActive
-                                ? "text-white font-medium"
-                                : "text-sidebar-foreground/50 hover:text-white"
+                              isChildActive ? "text-white font-medium" : "text-sidebar-foreground/50 hover:text-white"
                             )}
                           >
                             {child.title}
@@ -142,7 +120,6 @@ export function Sidebar() {
           })}
         </ul>
 
-        {/* Bottom nav */}
         <div className="mt-4 border-t border-sidebar-border pt-3">
           {BOTTOM_NAV.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -167,16 +144,16 @@ export function Sidebar() {
       <div className="border-t border-sidebar-border p-3">
         <div className={cn("flex items-center gap-3", collapsed ? "justify-center" : "px-3 py-2")}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-xs font-bold text-white">
-            PG
+            {initials}
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium text-white">Pierre G.</p>
-              <p className="truncate text-xs text-sidebar-foreground/50">Admin</p>
+              <p className="truncate text-sm font-medium text-white">{user?.name}</p>
+              <p className="truncate text-xs text-sidebar-foreground/50 capitalize">{user?.role}</p>
             </div>
           )}
           {!collapsed && (
-            <button className="text-sidebar-foreground/50 hover:text-white transition-colors">
+            <button onClick={logout} className="text-sidebar-foreground/50 hover:text-white transition-colors" title="Déconnexion">
               <LogOut className="h-4 w-4" />
             </button>
           )}

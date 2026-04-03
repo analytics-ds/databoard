@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useStudy } from "@/lib/study-context";
+import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,12 +39,12 @@ interface DemoTask {
 const DEMO_TASKS: DemoTask[] = [
   { id: "1", title: "LP : batch cooking automne", status: "todo", type: "content", keyword: "batch cooking automne" },
   { id: "2", title: "LP : batch cooking ete", status: "todo", type: "content", keyword: "batch cooking ete" },
-  { id: "3", title: "LP : r\u00e9gime m\u00e9diterran\u00e9en menu semaine", status: "todo", type: "content", keyword: "r\u00e9gime m\u00e9diterran\u00e9en menu semaine" },
+  { id: "3", title: "LP : régime méditerranéen menu semaine", status: "todo", type: "content", keyword: "régime méditerranéen menu semaine" },
   { id: "4", title: "Optimisation balises title x20", status: "todo", type: "technique" },
   { id: "5", title: "Backlink : les-calories.com", status: "in_progress", type: "netlinking", dueDate: "24 juin", overdue: true },
-  { id: "6", title: "R\u00e9daction article panier repas", status: "in_progress", type: "content" },
+  { id: "6", title: "Rédaction article panier repas", status: "in_progress", type: "content" },
   { id: "7", title: "Backlink : recettehealthy.com", status: "done", type: "netlinking", dueDate: "27 novembre" },
-  { id: "8", title: "MAJ contenu + images LP P\u00e2ques", status: "done", type: "content", assigneeInitials: "K.B" },
+  { id: "8", title: "MAJ contenu + images LP Pâques", status: "done", type: "content", assigneeInitials: "K.B" },
   { id: "9", title: "Audit technique complet", status: "done", type: "audit" },
   { id: "10", title: "Setup GA4 events", status: "done", type: "technique" },
 ];
@@ -52,36 +52,36 @@ const DEMO_TASKS: DemoTask[] = [
 const COLUMNS: { status: TaskStatus; title: string }[] = [
   { status: "todo", title: "A FAIRE" },
   { status: "in_progress", title: "EN COURS" },
-  { status: "done", title: "R\u00c9ALIS\u00c9ES" },
+  { status: "done", title: "RÉALISÉES" },
 ];
 
 export default function ProjectsPage() {
-  const { currentStudy } = useStudy();
+  const { organization } = useAuth();
   const [tasks, setTasks] = useState(DEMO_TASKS);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="T\u00e2ches"
-        description={`\u00c9tude (${currentStudy.domain}) — Soci\u00e9t\u00e9 (${currentStudy.clientName})`}
+        title="Tâches"
+        description={`Étude (${organization?.domain || ""}) — Société (${organization?.name || ""})`}
       />
 
       {/* Filters bar like SmartKeyword */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground shrink-0">Date d&apos;\u00e9ch\u00e9ance</Label>
-          <Input type="date" className="h-8 w-32 text-xs" placeholder="Date de d\u00e9but" />
-          <span className="text-xs text-muted-foreground">\u00e0</span>
+          <Label className="text-sm text-muted-foreground shrink-0">Date d&apos;échéance</Label>
+          <Input type="date" className="h-8 w-32 text-xs" placeholder="Date de début" />
+          <span className="text-xs text-muted-foreground">à</span>
           <Input type="date" className="h-8 w-32 text-xs" placeholder="Date de fin" />
         </div>
         <Button variant="outline" size="sm" className="text-xs">Filtrer par type</Button>
         <Button variant="outline" size="sm" className="text-xs">Filtrer par utilisateur</Button>
         <Button variant="outline" size="sm" className="text-xs">Suivi par</Button>
         <Button variant="outline" size="sm" className="text-xs gap-1.5">
-          <Archive className="h-3 w-3" />T\u00e2ches archiv\u00e9es
+          <Archive className="h-3 w-3" />Tâches archivées
         </Button>
         <Button variant="outline" size="sm" className="text-xs gap-1.5">
-          <Download className="h-3 w-3" />Exporter les t\u00e2ches
+          <Download className="h-3 w-3" />Exporter les tâches
         </Button>
       </div>
 
@@ -99,16 +99,16 @@ export default function ProjectsPage() {
                 <Dialog>
                   <DialogTrigger render={<Button variant="outline" size="sm" className="w-full gap-1.5 text-xs border-dashed" />}>
                     <Plus className="h-3 w-3" />
-                    Ajouter une t\u00e2che
+                    Ajouter une tâche
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Nouvelle t\u00e2che</DialogTitle>
+                      <DialogTitle>Nouvelle tâche</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div className="space-y-2">
                         <Label>Titre</Label>
-                        <Input placeholder="Titre de la t\u00e2che" />
+                        <Input placeholder="Titre de la tâche" />
                       </div>
                       <div className="space-y-2">
                         <Label>Description</Label>
@@ -128,17 +128,17 @@ export default function ProjectsPage() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label>Date d&apos;\u00e9ch\u00e9ance</Label>
+                          <Label>Date d&apos;échéance</Label>
                           <Input type="date" />
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label>Mot cl\u00e9 associ\u00e9</Label>
+                        <Label>Mot clé associé</Label>
                         <Input placeholder="Ex: batch cooking" />
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button>Cr\u00e9er</Button>
+                      <Button>Créer</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -166,7 +166,7 @@ export default function ProjectsPage() {
                         {task.dueDate && (
                           <span className={cn("flex items-center gap-1 text-[10px]", task.overdue ? "text-red-500" : "text-muted-foreground")}>
                             <Calendar className="h-3 w-3" />
-                            {task.overdue && "\u26a0"} {task.dueDate}
+                            {task.overdue && "⚠"} {task.dueDate}
                           </span>
                         )}
                         {task.assigneeInitials && (

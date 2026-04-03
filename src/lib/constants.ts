@@ -38,13 +38,13 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   {
-    title: "Suivi de mots cl\u00e9s",
+    title: "Suivi de mots clés",
     href: "/keywords",
     icon: Search,
     children: [
-      { title: "Tous les mots cl\u00e9s", href: "/keywords" },
-      { title: "R\u00e9partition des positions", href: "/keywords/positions" },
-      { title: "Visibilit\u00e9", href: "/keywords/visibility" },
+      { title: "Tous les mots clés", href: "/keywords" },
+      { title: "Répartition des positions", href: "/keywords/positions" },
+      { title: "Visibilité", href: "/keywords/visibility" },
     ],
   },
   {
@@ -57,7 +57,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/tools",
     icon: Wrench,
     children: [
-      { title: "Recherche de mots cl\u00e9s", href: "/tools/keyword-research" },
+      { title: "Recherche de mots clés", href: "/tools/keyword-research" },
       { title: "GEO Monitoring", href: "/tools/geo", disabled: true },
     ],
   },
@@ -80,7 +80,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/projects",
     icon: KanbanSquare,
     children: [
-      { title: "T\u00e2ches", href: "/projects" },
+      { title: "Tâches", href: "/projects" },
       { title: "Documents", href: "/projects/docs" },
     ],
   },
@@ -93,7 +93,7 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 export const BOTTOM_NAV: NavItem[] = [
-  { title: "Param\u00e8tres", href: "/settings", icon: Settings },
+  { title: "Paramètres", href: "/settings", icon: Settings },
 ];
 
 // ── Position colors ───────────────────────────────────────
@@ -119,7 +119,7 @@ export function getPositionColor(position: number | null | undefined) {
 export const TASK_STATUS_CONFIG = {
   todo: { label: "A faire", color: "bg-gray-100 text-gray-700" },
   in_progress: { label: "En cours", color: "bg-blue-100 text-blue-700" },
-  done: { label: "R\u00e9alis\u00e9es", color: "bg-emerald-100 text-emerald-700" },
+  done: { label: "Réalisées", color: "bg-emerald-100 text-emerald-700" },
 } as const;
 
 export const TASK_TYPE_CONFIG = {
@@ -139,15 +139,15 @@ export const PRIORITY_CONFIG = {
 
 export const CONTENT_STATUS_CONFIG = {
   draft: { label: "Brouillon", color: "bg-gray-100 text-gray-700" },
-  writing: { label: "R\u00e9daction", color: "bg-blue-100 text-blue-700" },
+  writing: { label: "Rédaction", color: "bg-blue-100 text-blue-700" },
   review: { label: "Relecture", color: "bg-amber-100 text-amber-700" },
-  published: { label: "Publi\u00e9", color: "bg-emerald-100 text-emerald-700" },
+  published: { label: "Publié", color: "bg-emerald-100 text-emerald-700" },
 } as const;
 
 export const BACKLINK_STATUS_CONFIG = {
-  domain_to_validate: { label: "Domaine \u00e0 valider", color: "bg-amber-100 text-amber-700" },
-  article_writing: { label: "Article en r\u00e9daction", color: "bg-blue-100 text-blue-700" },
-  article_validated: { label: "Article valid\u00e9", color: "bg-emerald-100 text-emerald-700" },
-  published: { label: "Publi\u00e9", color: "bg-emerald-100 text-emerald-700" },
-  domain_rejected: { label: "Domaine refus\u00e9", color: "bg-red-100 text-red-700" },
+  domain_to_validate: { label: "Domaine à valider", color: "bg-amber-100 text-amber-700" },
+  article_writing: { label: "Article en rédaction", color: "bg-blue-100 text-blue-700" },
+  article_validated: { label: "Article validé", color: "bg-emerald-100 text-emerald-700" },
+  published: { label: "Publié", color: "bg-emerald-100 text-emerald-700" },
+  domain_rejected: { label: "Domaine refusé", color: "bg-red-100 text-red-700" },
 } as const;

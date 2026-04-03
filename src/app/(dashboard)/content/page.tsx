@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useStudy } from "@/lib/study-context";
+import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -33,11 +33,11 @@ function ScoreIndicator({ score }: { score: number }) {
 }
 
 export default function ContentPage() {
-  const { currentStudy } = useStudy();
+  const { organization } = useAuth();
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Contenu" description={`Articles SEO pour ${currentStudy.clientName}`}>
+      <PageHeader title="Contenu" description={`Articles SEO pour ${organization?.name || ""}`}>
         <Link href="/content/new">
           <Button size="sm" className="gap-2"><Plus className="h-4 w-4" />Nouvel article</Button>
         </Link>
@@ -45,9 +45,9 @@ export default function ContentPage() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Card className="p-4 text-center"><p className="text-2xl font-bold font-mono">{DEMO_CONTENT.length}</p><p className="text-xs text-muted-foreground">Total</p></Card>
-        <Card className="p-4 text-center"><p className="text-2xl font-bold font-mono text-blue-600">{DEMO_CONTENT.filter(c => c.status === "writing").length}</p><p className="text-xs text-muted-foreground">En r\u00e9daction</p></Card>
+        <Card className="p-4 text-center"><p className="text-2xl font-bold font-mono text-blue-600">{DEMO_CONTENT.filter(c => c.status === "writing").length}</p><p className="text-xs text-muted-foreground">En rédaction</p></Card>
         <Card className="p-4 text-center"><p className="text-2xl font-bold font-mono text-amber-600">{DEMO_CONTENT.filter(c => c.status === "review").length}</p><p className="text-xs text-muted-foreground">En relecture</p></Card>
-        <Card className="p-4 text-center"><p className="text-2xl font-bold font-mono text-emerald-600">{DEMO_CONTENT.filter(c => c.status === "published").length}</p><p className="text-xs text-muted-foreground">Publi\u00e9s</p></Card>
+        <Card className="p-4 text-center"><p className="text-2xl font-bold font-mono text-emerald-600">{DEMO_CONTENT.filter(c => c.status === "published").length}</p><p className="text-xs text-muted-foreground">Publiés</p></Card>
       </div>
 
       <Card>
@@ -57,11 +57,11 @@ export default function ContentPage() {
               <TableRow>
                 <TableHead className="w-[300px]">Titre</TableHead>
                 <TableHead className="w-[100px]">Statut</TableHead>
-                <TableHead>Mot-cl\u00e9 cible</TableHead>
+                <TableHead>Mot-clé cible</TableHead>
                 <TableHead className="text-right">Mots</TableHead>
                 <TableHead className="w-[120px]">Score SEO</TableHead>
                 <TableHead>Auteur</TableHead>
-                <TableHead className="text-right">Mis \u00e0 jour</TableHead>
+                <TableHead className="text-right">Mis à jour</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useStudy } from "@/lib/study-context";
+import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,14 +40,14 @@ function VariationCell({ value, suffix }: { value: number; suffix?: string }) {
 }
 
 export default function TrafficPage() {
-  const { currentStudy } = useStudy();
+  const { organization } = useAuth();
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Trafic SEO" description={`${currentStudy.clientName} (${currentStudy.domain})`}>
+      <PageHeader title="Trafic SEO" description={`${organization?.name || ""} (${organization?.domain || ""})`}>
         <Button variant="outline" size="sm" className="gap-2">
           <Settings2 className="h-4 w-4" />
-          Mode par d\u00e9faut
+          Mode par défaut
         </Button>
       </PageHeader>
 
@@ -83,7 +83,7 @@ export default function TrafficPage() {
               <p className="text-[10px] uppercase tracking-wider text-primary font-semibold mb-1">Plage de dates</p>
               <div className="flex items-center gap-1">
                 <Input type="date" defaultValue="2026-01-01" className="h-9 text-xs" />
-                <span className="text-xs text-muted-foreground">\u00e0</span>
+                <span className="text-xs text-muted-foreground">à</span>
                 <Input type="date" defaultValue="2026-03-31" className="h-9 text-xs" />
               </div>
             </div>
@@ -127,14 +127,14 @@ export default function TrafficPage() {
               Segment pages
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-              Segment mots cl\u00e9s
+              Segment mots clés
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
               Conversion
             </Button>
             <div className="ml-auto flex items-center gap-2">
               <Button variant="ghost" size="sm" className="text-xs text-primary gap-1">
-                <RotateCcw className="h-3 w-3" />R\u00e9initialiser
+                <RotateCcw className="h-3 w-3" />Réinitialiser
               </Button>
               <Button size="sm" className="text-xs">Appliquer</Button>
             </div>
@@ -205,7 +205,7 @@ export default function TrafficPage() {
           {/* Chart area - placeholder for recharts */}
           <div className="flex h-64 items-center justify-center rounded-lg border border-dashed border-border bg-muted/20">
             <p className="text-sm text-muted-foreground">
-              Graphique Sessions SEO (int\u00e9gration recharts \u00e0 venir avec donn\u00e9es GSC/GA4 r\u00e9elles)
+              Graphique Sessions SEO (intégration recharts à venir avec données GSC/GA4 réelles)
             </p>
           </div>
         </CardContent>
@@ -214,10 +214,10 @@ export default function TrafficPage() {
       {/* Pages table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardTitle className="text-base font-semibold">D\u00e9tail par page</CardTitle>
+          <CardTitle className="text-base font-semibold">Détail par page</CardTitle>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-              <Settings2 className="h-3 w-3" />G\u00e9rer les colonnes 6/13
+              <Settings2 className="h-3 w-3" />Gérer les colonnes 6/13
             </Button>
             <Button variant="outline" size="sm" className="gap-1.5 text-xs">
               <Download className="h-3 w-3" />Exporter
@@ -232,7 +232,7 @@ export default function TrafficPage() {
                 <TableHead className="text-right">Sessions SEO</TableHead>
                 <TableHead className="text-right">Variation sessions</TableHead>
                 <TableHead className="text-right">Sessions avec engagement</TableHead>
-                <TableHead className="text-right">Dur\u00e9e moyenne sur la page</TableHead>
+                <TableHead className="text-right">Durée moyenne sur la page</TableHead>
                 <TableHead className="text-right">Taux d&apos;engagement</TableHead>
               </TableRow>
             </TableHeader>

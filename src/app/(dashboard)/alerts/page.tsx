@@ -1,6 +1,6 @@
 "use client";
 
-import { useStudy } from "@/lib/study-context";
+import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,22 +9,22 @@ import { TrendingDown, TrendingUp, AlertTriangle, FileText, CheckCircle2, Bell }
 import { cn } from "@/lib/utils";
 
 const DEMO_ALERTS = [
-  { id: "1", type: "position_drop", title: "Chute de position: 'menu de la semaine'", message: "Le mot-cl\u00e9 est pass\u00e9 de la position 3 \u00e0 5", severity: "warning" as const, isRead: false, createdAt: "2026-04-03T10:30:00" },
-  { id: "2", type: "position_gain", title: "Gain de position: 'batch cooking'", message: "Le mot-cl\u00e9 est pass\u00e9 de la position 12 \u00e0 8", severity: "info" as const, isRead: false, createdAt: "2026-04-03T09:15:00" },
-  { id: "3", type: "content_due", title: "Article en retard: 'LP batch cooking automne'", message: "L'article devait \u00eatre publi\u00e9 le 01/04", severity: "critical" as const, isRead: false, createdAt: "2026-04-02T14:00:00" },
-  { id: "4", type: "position_drop", title: "Chute importante: 'recette lasagnes'", message: "Le mot-cl\u00e9 est pass\u00e9 de la position 15 \u00e0 23", severity: "warning" as const, isRead: true, createdAt: "2026-04-01T11:20:00" },
-  { id: "5", type: "position_gain", title: "Top 3 atteint: 'box repas'", message: "Le mot-cl\u00e9 est maintenant en position 2", severity: "info" as const, isRead: true, createdAt: "2026-03-31T08:00:00" },
+  { id: "1", type: "position_drop", title: "Chute de position: 'menu de la semaine'", message: "Le mot-clé est passé de la position 3 à 5", severity: "warning" as const, isRead: false, createdAt: "2026-04-03T10:30:00" },
+  { id: "2", type: "position_gain", title: "Gain de position: 'batch cooking'", message: "Le mot-clé est passé de la position 12 à 8", severity: "info" as const, isRead: false, createdAt: "2026-04-03T09:15:00" },
+  { id: "3", type: "content_due", title: "Article en retard: 'LP batch cooking automne'", message: "L'article devait être publié le 01/04", severity: "critical" as const, isRead: false, createdAt: "2026-04-02T14:00:00" },
+  { id: "4", type: "position_drop", title: "Chute importante: 'recette lasagnes'", message: "Le mot-clé est passé de la position 15 à 23", severity: "warning" as const, isRead: true, createdAt: "2026-04-01T11:20:00" },
+  { id: "5", type: "position_gain", title: "Top 3 atteint: 'box repas'", message: "Le mot-clé est maintenant en position 2", severity: "info" as const, isRead: true, createdAt: "2026-03-31T08:00:00" },
 ];
 
 const ALERT_ICONS = { position_drop: TrendingDown, position_gain: TrendingUp, crawl_error: AlertTriangle, content_due: FileText, custom: Bell };
 const SEVERITY_STYLES = { info: "border-l-blue-500 bg-blue-50/50", warning: "border-l-amber-500 bg-amber-50/50", critical: "border-l-red-500 bg-red-50/50" };
 
 export default function AlertsPage() {
-  const { currentStudy } = useStudy();
+  const { organization } = useAuth();
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Alertes" description={`${currentStudy.clientName} (${currentStudy.domain})`}>
+      <PageHeader title="Alertes" description={`${organization?.name || ""} (${organization?.domain || ""})`}>
         <Button variant="outline" size="sm" className="gap-2">
           <CheckCircle2 className="h-4 w-4" />
           Tout marquer comme lu

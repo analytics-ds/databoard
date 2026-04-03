@@ -31,8 +31,9 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
         setError(data.error || "Identifiants incorrects");
         return;
       }
@@ -50,7 +51,7 @@ export default function LoginPage() {
       <CardHeader className="text-center">
         <CardTitle className="text-xl text-white">Connexion</CardTitle>
         <CardDescription className="text-blue-200/60">
-          Acc\u00e9dez \u00e0 votre espace Databoard
+          Accédez à votre espace Databoard
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -78,7 +79,7 @@ export default function LoginPage() {
                 id="password"
                 name="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                placeholder="••••••••"
                 required
                 className="border-white/10 bg-white/5 pr-10 text-white placeholder:text-white/30 focus:border-blue-500"
               />
@@ -100,7 +101,7 @@ export default function LoginPage() {
           <p className="text-center text-sm text-blue-200/40">
             Pas encore de compte ?{" "}
             <Link href="/register" className="text-blue-400 hover:text-blue-300">
-              Cr\u00e9er un compte
+              Créer un compte
             </Link>
           </p>
         </CardFooter>

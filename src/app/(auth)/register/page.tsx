@@ -24,6 +24,8 @@ export default function RegisterPage() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
+    const organizationName = formData.get("organizationName") as string;
+    const domain = formData.get("domain") as string;
 
     if (password !== confirmPassword) {
       setError("Les mots de passe ne correspondent pas");
@@ -32,7 +34,7 @@ export default function RegisterPage() {
     }
 
     if (password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caract\u00e8res");
+      setError("Le mot de passe doit contenir au moins 8 caractères");
       setLoading(false);
       return;
     }
@@ -41,16 +43,17 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, organizationName, domain }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Erreur lors de la cr\u00e9ation du compte");
+        setError(data.error || "Erreur lors de la création du compte");
         return;
       }
 
-      router.push("/login");
+      router.push("/dashboard");
     } catch {
       setError("Une erreur est survenue");
     } finally {
@@ -61,9 +64,9 @@ export default function RegisterPage() {
   return (
     <Card className="w-full max-w-md border-white/10 bg-white/5 shadow-2xl backdrop-blur-sm">
       <CardHeader className="text-center">
-        <CardTitle className="text-xl text-white">Cr\u00e9er un compte</CardTitle>
+        <CardTitle className="text-xl text-white">Créer un compte</CardTitle>
         <CardDescription className="text-blue-200/60">
-          Rejoignez la plateforme Databoard
+          Inscrivez-vous sur Databoard
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -74,7 +77,26 @@ export default function RegisterPage() {
             </div>
           )}
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-blue-100/80">Nom complet</Label>
+            <Label htmlFor="organizationName" className="text-blue-100/80">Nom de votre entreprise / société</Label>
+            <Input
+              id="organizationName"
+              name="organizationName"
+              placeholder="Ex: Quitoque"
+              required
+              className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-blue-500"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="domain" className="text-blue-100/80">Domaine (optionnel)</Label>
+            <Input
+              id="domain"
+              name="domain"
+              placeholder="quitoque.fr"
+              className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-blue-500"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="name" className="text-blue-100/80">Votre nom complet</Label>
             <Input
               id="name"
               name="name"
@@ -100,7 +122,7 @@ export default function RegisterPage() {
               id="password"
               name="password"
               type="password"
-              placeholder="Minimum 8 caract\u00e8res"
+              placeholder="Minimum 8 caractères"
               required
               minLength={8}
               className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-blue-500"
@@ -112,19 +134,20 @@ export default function RegisterPage() {
               id="confirmPassword"
               name="confirmPassword"
               type="password"
-              placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+              placeholder="••••••••"
               required
               className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-blue-500"
             />
           </div>
+          {/* Turnstile captcha will be added here when TURNSTILE_SITE_KEY is configured */}
         </CardContent>
         <CardFooter className="flex flex-col gap-3">
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Cr\u00e9er mon compte
+            Créer mon compte
           </Button>
           <p className="text-center text-sm text-blue-200/40">
-            D\u00e9j\u00e0 un compte ?{" "}
+            Déjà un compte ?{" "}
             <Link href="/login" className="text-blue-400 hover:text-blue-300">
               Se connecter
             </Link>

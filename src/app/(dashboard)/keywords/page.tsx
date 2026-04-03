@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useStudy } from "@/lib/study-context";
+import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +52,7 @@ import Link from "next/link";
 // Demo keywords for Quitoque
 const DEMO_KEYWORDS = [
   { id: "1", keyword: "pizza", url: "", position: null, prevPosition: null, bestPosition: null, volume: 1500000, cpc: 0.45, snippets: ["faq", "people_also_ask", "images", "video"] },
-  { id: "2", keyword: "\u00e9picerie", url: "", position: null, prevPosition: null, bestPosition: null, volume: 550000, cpc: 0.30, snippets: ["images", "faq", "people_also_ask", "video"] },
+  { id: "2", keyword: "épicerie", url: "", position: null, prevPosition: null, bestPosition: null, volume: 550000, cpc: 0.30, snippets: ["images", "faq", "people_also_ask", "video"] },
   { id: "3", keyword: "mousses au chocolat", url: "", position: null, prevPosition: null, bestPosition: null, volume: 246000, cpc: 0.20, snippets: ["faq", "images", "video"] },
   { id: "4", keyword: "recette lasagnes", url: "", position: null, prevPosition: null, bestPosition: null, volume: 201000, cpc: 0.15, snippets: ["video", "faq"] },
   { id: "5", keyword: "halloween", url: "/nos-paniers/box-halloween", position: null, prevPosition: null, bestPosition: null, volume: 201000, cpc: 0.35, snippets: ["faq", "video", "images"] },
@@ -69,7 +69,7 @@ const SNIPPET_ICONS: Record<string, { icon: typeof HelpCircle; label: string }> 
   faq: { icon: HelpCircle, label: "FAQ" },
   people_also_ask: { icon: MessageSquare, label: "PAA" },
   images: { icon: Image, label: "Images" },
-  video: { icon: Video, label: "Vid\u00e9o" },
+  video: { icon: Video, label: "Vidéo" },
   shopping: { icon: ShoppingBag, label: "Shopping" },
 };
 
@@ -101,7 +101,7 @@ function TrendIndicator({ current, previous }: { current: number | null; previou
 }
 
 export default function KeywordsPage() {
-  const { currentStudy } = useStudy();
+  const { organization } = useAuth();
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -132,8 +132,8 @@ export default function KeywordsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Tous les mots cl\u00e9s"
-        description={`${currentStudy.clientName} (${currentStudy.domain})`}
+        title="Tous les mots clés"
+        description={`${organization?.name || ""} (${organization?.domain || ""})`}
       >
         <Button variant="outline" size="sm" className="gap-2">
           <Download className="h-4 w-4" />
@@ -142,20 +142,20 @@ export default function KeywordsPage() {
         <Dialog>
           <DialogTrigger render={<Button size="sm" className="gap-2" />}>
             <Plus className="h-4 w-4" />
-            Ajouter des mots-cl\u00e9s
+            Ajouter des mots-clés
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Ajouter des mots-cl\u00e9s</DialogTitle>
+              <DialogTitle>Ajouter des mots-clés</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Mots-cl\u00e9s (un par ligne)</Label>
+                <Label>Mots-clés (un par ligne)</Label>
                 <Textarea placeholder="pizza&#10;recette lasagnes&#10;batch cooking" rows={5} />
               </div>
               <div className="space-y-2">
                 <Label>URL cible (optionnel)</Label>
-                <Input placeholder={`https://${currentStudy.domain}/page`} />
+                <Input placeholder={`https://${organization?.domain || ""}/page`} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -169,7 +169,7 @@ export default function KeywordsPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>P\u00e9riodicit\u00e9</Label>
+                  <Label>Périodicité</Label>
                   <Select defaultValue="weekly">
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -190,17 +190,17 @@ export default function KeywordsPage() {
       {/* Position distribution tabs like SmartKeyword */}
       <div className="flex items-center gap-6 border-b border-border pb-2 text-sm">
         <span className="font-medium">
-          Positions 1 \u00e0 3 ({top3.length}
+          Positions 1 à 3 ({top3.length}
           <TrendingUp className="inline h-3 w-3 text-emerald-600 mx-0.5" />
           <TrendingDown className="inline h-3 w-3 text-red-500 mx-0.5" />)
         </span>
         <span className="font-medium">
-          Positions 4 \u00e0 10 ({top10.length - top3.length}
+          Positions 4 à 10 ({top10.length - top3.length}
           <TrendingUp className="inline h-3 w-3 text-emerald-600 mx-0.5" />
           <TrendingDown className="inline h-3 w-3 text-red-500 mx-0.5" />)
         </span>
         <span className="font-medium">
-          Positions 11 \u00e0 30 ({top30.length - top10.length}
+          Positions 11 à 30 ({top30.length - top10.length}
           <TrendingUp className="inline h-3 w-3 text-emerald-600 mx-0.5" />
           <TrendingDown className="inline h-3 w-3 text-red-500 mx-0.5" />)
         </span>
@@ -209,16 +209,16 @@ export default function KeywordsPage() {
       {/* Trafic potentiel */}
       <Card>
         <CardContent className="p-4">
-          <p className="text-sm text-muted-foreground">Trafic potentiel : <span className="font-mono font-semibold text-foreground">~{Math.round(positioned.reduce((acc, k) => acc + (k.volume / (k.position || 30)), 0)).toLocaleString("fr-FR")}</span> visites/mois estim\u00e9es</p>
+          <p className="text-sm text-muted-foreground">Trafic potentiel : <span className="font-mono font-semibold text-foreground">~{Math.round(positioned.reduce((acc, k) => acc + (k.volume / (k.position || 30)), 0)).toLocaleString("fr-FR")}</span> visites/mois estimées</p>
         </CardContent>
       </Card>
 
       {/* Bulk actions */}
       {selectedIds.size > 0 && (
         <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2">
-          <span className="text-sm font-medium">{selectedIds.size} mot(s)-cl\u00e9(s) s\u00e9lectionn\u00e9(s)</span>
+          <span className="text-sm font-medium">{selectedIds.size} mot(s)-clé(s) sélectionné(s)</span>
           <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs"><Tag className="h-3 w-3" />Taguer</Button>
-          <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs">D\u00e9taguer</Button>
+          <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs">Détaguer</Button>
           <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs"><Download className="h-3 w-3" />Export</Button>
           <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs text-red-600 hover:text-red-700"><Trash2 className="h-3 w-3" />Supprimer</Button>
         </div>
@@ -227,12 +227,12 @@ export default function KeywordsPage() {
       {selectedIds.size === 0 && (
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={toggleAll}>
-            S\u00e9lectionner tous les mots cl\u00e9s de la page
+            Sélectionner tous les mots clés de la page
           </Button>
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher un mot-cl\u00e9..."
+              placeholder="Rechercher un mot-clé..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-8 text-sm"
@@ -255,7 +255,7 @@ export default function KeywordsPage() {
                 </TableHead>
                 <TableHead className="w-[280px]">
                   <button className="flex items-center gap-1 hover:text-foreground">
-                    Mot cl\u00e9 <ArrowUpDown className="h-3 w-3" />
+                    Mot clé <ArrowUpDown className="h-3 w-3" />
                   </button>
                 </TableHead>
                 <TableHead className="text-right w-[120px]">
@@ -297,7 +297,7 @@ export default function KeywordsPage() {
                   <TableCell>
                     {kw.url ? (
                       <a
-                        href={`https://${currentStudy.domain}${kw.url}`}
+                        href={`https://${organization?.domain || ""}${kw.url}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1 text-xs text-primary hover:underline"
@@ -306,7 +306,7 @@ export default function KeywordsPage() {
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Pas de page positionn\u00e9e.</span>
+                      <span className="text-xs text-muted-foreground">Pas de page positionnée.</span>
                     )}
                   </TableCell>
                   <TableCell>

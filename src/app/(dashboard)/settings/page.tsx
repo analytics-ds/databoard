@@ -13,19 +13,19 @@ import { Save, User, Key, Globe, BarChart3, Search, Satellite } from "lucide-rea
 export default function SettingsPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Param\u00e8tres" description="Configuration de votre compte et int\u00e9grations" />
+      <PageHeader title="Paramètres" description="Configuration de votre compte et intégrations" />
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList>
           <TabsTrigger value="profile" className="gap-2"><User className="h-4 w-4" />Profil</TabsTrigger>
-          <TabsTrigger value="integrations" className="gap-2"><Key className="h-4 w-4" />Int\u00e9grations</TabsTrigger>
+          <TabsTrigger value="integrations" className="gap-2"><Key className="h-4 w-4" />Intégrations</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Informations personnelles</CardTitle>
-              <CardDescription>Mettez \u00e0 jour vos informations de profil</CardDescription>
+              <CardDescription>Mettez à jour vos informations de profil</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -39,7 +39,7 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>R\u00f4le</Label>
+                <Label>Rôle</Label>
                 <Input defaultValue="Administrateur" disabled />
               </div>
               <Button className="gap-2"><Save className="h-4 w-4" />Sauvegarder</Button>
@@ -49,7 +49,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Changer le mot de passe</CardTitle>
-              <CardDescription>Mettez \u00e0 jour votre mot de passe de connexion</CardDescription>
+              <CardDescription>Mettez à jour votre mot de passe de connexion</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -66,7 +66,7 @@ export default function SettingsPage() {
                   <Input type="password" />
                 </div>
               </div>
-              <Button variant="outline" className="gap-2"><Key className="h-4 w-4" />Mettre \u00e0 jour</Button>
+              <Button variant="outline" className="gap-2"><Key className="h-4 w-4" />Mettre à jour</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -81,9 +81,9 @@ export default function SettingsPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     Google Search Console
-                    <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700">Bient\u00f4t</Badge>
+                    <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700">Bientôt</Badge>
                   </CardTitle>
-                  <CardDescription>Connectez vos propri\u00e9t\u00e9s GSC pour suivre les performances</CardDescription>
+                  <CardDescription>Connectez vos propriétés GSC pour suivre les performances</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -101,7 +101,7 @@ export default function SettingsPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     Google Analytics 4
-                    <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700">Bient\u00f4t</Badge>
+                    <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700">Bientôt</Badge>
                   </CardTitle>
                   <CardDescription>Connectez GA4 pour suivre le trafic et les conversions</CardDescription>
                 </div>
@@ -121,16 +121,16 @@ export default function SettingsPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     Haloscan API
-                    <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700">Bient\u00f4t</Badge>
+                    <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700">Bientôt</Badge>
                   </CardTitle>
-                  <CardDescription>Recherche de mots-cl\u00e9s avanc\u00e9e avec Haloscan</CardDescription>
+                  <CardDescription>Recherche de mots-clés avancée avec Haloscan</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2">
-                <Label>Cl\u00e9 API</Label>
-                <Input placeholder="Votre cl\u00e9 API Haloscan" disabled />
+                <Label>Clé API</Label>
+                <Input placeholder="Votre clé API Haloscan" disabled />
               </div>
             </CardContent>
           </Card>
@@ -144,16 +144,16 @@ export default function SettingsPage() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     Meteoria API (GEO Monitoring)
-                    <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700">Bient\u00f4t</Badge>
+                    <Badge variant="secondary" className="text-[10px] bg-amber-100 text-amber-700">Bientôt</Badge>
                   </CardTitle>
-                  <CardDescription>Monitoring de la visibilit\u00e9 dans les r\u00e9ponses g\u00e9n\u00e9ratives (GEO)</CardDescription>
+                  <CardDescription>Monitoring de la visibilité dans les réponses génératives (GEO)</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2">
-                <Label>Cl\u00e9 API</Label>
-                <Input placeholder="Votre cl\u00e9 API Meteoria" disabled />
+                <Label>Clé API</Label>
+                <Input placeholder="Votre clé API Meteoria" disabled />
               </div>
             </CardContent>
           </Card>

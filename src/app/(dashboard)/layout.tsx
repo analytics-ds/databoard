@@ -1,6 +1,6 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
-import { StudyProvider } from "@/lib/study-context";
+import { AuthProvider } from "@/lib/auth-context";
 
 export default function DashboardLayout({
   children,
@@ -8,7 +8,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <StudyProvider>
+    <AuthProvider>
       <div className="flex h-screen overflow-hidden bg-background">
         <Sidebar />
         <div className="flex flex-1 flex-col pl-[270px] transition-all duration-300">
@@ -16,6 +16,6 @@ export default function DashboardLayout({
           <main className="flex-1 overflow-y-auto p-6">{children}</main>
         </div>
       </div>
-    </StudyProvider>
+    </AuthProvider>
   );
 }

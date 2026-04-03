@@ -1,46 +1,56 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-// ── Users & Auth ──────────────────────────────────────────
+// ── Organizations (1 org = 1 client account) ──────────────
+export const organizations = sqliteTable("organizations", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text("name").notNull(),
+  domain: text("domain"),
+  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
+  updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
+});
+
+// ── Users ─────────────────────────────────────────────────
+// Every user belongs to exactly one organization.
+// orgId is ALWAYS used to scope data access (multi-tenant isolation).
 export const users = sqliteTable("users", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  orgId: text("org_id").references(() => organizations.id, { onDelete: "cascade" }).notNull(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
-  role: text("role", { enum: ["admin", "manager", "editor", "viewer"] }).notNull().default("viewer"),
-  image: text("image"),
+  role: text("role", { enum: ["owner", "admin", "member", "viewer"] }).notNull().default("member"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ── Clients ───────────────────────────────────────────────
-export const clients = sqliteTable("clients", {
+// ── Invitations ───────────────────────────────────────────
+export const invitations = sqliteTable("invitations", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  name: text("name").notNull(),
-  domain: text("domain").notNull(),
-  logo: text("logo"),
-  gscPropertyUrl: text("gsc_property_url"),
-  ga4PropertyId: text("ga4_property_id"),
-  notes: text("notes").default(""),
+  orgId: text("org_id").references(() => organizations.id, { onDelete: "cascade" }).notNull(),
+  email: text("email").notNull(),
+  role: text("role", { enum: ["admin", "member", "viewer"] }).notNull().default("member"),
+  token: text("token").notNull().unique(),
+  invitedBy: text("invited_by").references(() => users.id).notNull(),
+  expiresAt: text("expires_at").notNull(),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
-  updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
 // ── Keywords ──────────────────────────────────────────────
+// ALL data tables include orgId for strict tenant isolation.
+// Queries MUST always filter by orgId from the authenticated session.
 export const keywords = sqliteTable("keywords", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  clientId: text("client_id").references(() => clients.id, { onDelete: "cascade" }).notNull(),
+  orgId: text("org_id").references(() => organizations.id, { onDelete: "cascade" }).notNull(),
   keyword: text("keyword").notNull(),
   url: text("url"),
-  searchEngine: text("search_engine", { enum: ["google", "bing", "google_mobile"] }).default("google"),
+  searchEngine: text("search_engine", { enum: ["google", "google_mobile", "bing"] }).default("google"),
   country: text("country").default("FR"),
-  language: text("language").default("fr"),
   tags: text("tags").default("[]"),
   currentPosition: integer("current_position"),
   previousPosition: integer("previous_position"),
   bestPosition: integer("best_position"),
   searchVolume: integer("search_volume").default(0),
   cpc: real("cpc").default(0),
-  competition: real("competition").default(0),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
@@ -48,30 +58,21 @@ export const keywords = sqliteTable("keywords", {
 export const keywordHistory = sqliteTable("keyword_history", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   keywordId: text("keyword_id").references(() => keywords.id, { onDelete: "cascade" }).notNull(),
+  orgId: text("org_id").references(() => organizations.id, { onDelete: "cascade" }).notNull(),
   position: integer("position"),
   url: text("url"),
   date: text("date").notNull(),
-  features: text("features").default("[]"),
 });
 
 // ── Projects & Tasks ──────────────────────────────────────
-export const projects = sqliteTable("projects", {
-  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  clientId: text("client_id").references(() => clients.id, { onDelete: "cascade" }).notNull(),
-  name: text("name").notNull(),
-  description: text("description").default(""),
-  status: text("status", { enum: ["active", "paused", "completed"] }).default("active"),
-  createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
-  updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
-});
-
 export const tasks = sqliteTable("tasks", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  projectId: text("project_id").references(() => projects.id, { onDelete: "cascade" }).notNull(),
+  orgId: text("org_id").references(() => organizations.id, { onDelete: "cascade" }).notNull(),
   title: text("title").notNull(),
   description: text("description").default(""),
-  status: text("status", { enum: ["todo", "in_progress", "review", "done"] }).default("todo"),
-  priority: text("priority", { enum: ["low", "medium", "high", "urgent"] }).default("medium"),
+  status: text("status", { enum: ["todo", "in_progress", "done"] }).default("todo"),
+  type: text("type", { enum: ["content", "netlinking", "technique", "audit", "other"] }).default("other"),
+  keyword: text("keyword"),
   assigneeId: text("assignee_id").references(() => users.id),
   dueDate: text("due_date"),
   order: integer("order").default(0),
@@ -82,10 +83,8 @@ export const tasks = sqliteTable("tasks", {
 // ── Content ───────────────────────────────────────────────
 export const contentItems = sqliteTable("content_items", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  clientId: text("client_id").references(() => clients.id, { onDelete: "cascade" }).notNull(),
-  projectId: text("project_id").references(() => projects.id),
+  orgId: text("org_id").references(() => organizations.id, { onDelete: "cascade" }).notNull(),
   title: text("title").notNull(),
-  slug: text("slug"),
   body: text("body").default(""),
   status: text("status", { enum: ["draft", "writing", "review", "published"] }).default("draft"),
   targetKeyword: text("target_keyword"),
@@ -98,39 +97,42 @@ export const contentItems = sqliteTable("content_items", {
   updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ── Client Documents ──────────────────────────────────────
-export const clientDocuments = sqliteTable("client_documents", {
+// ── Backlinks ─────────────────────────────────────────────
+export const backlinks = sqliteTable("backlinks", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  clientId: text("client_id").references(() => clients.id, { onDelete: "cascade" }).notNull(),
-  title: text("title").notNull(),
-  content: text("content").default(""),
-  category: text("category", { enum: ["strategy", "technical", "reporting", "other"] }).default("other"),
+  orgId: text("org_id").references(() => organizations.id, { onDelete: "cascade" }).notNull(),
+  keyword: text("keyword"),
+  sourceDomain: text("source_domain").notNull(),
+  sourceUrl: text("source_url"),
+  targetUrl: text("target_url").notNull(),
+  anchor: text("anchor"),
+  status: text("status", { enum: ["domain_to_validate", "article_writing", "article_validated", "published", "domain_rejected"] }).default("domain_to_validate"),
+  da: integer("da"),
+  tf: integer("tf"),
+  cf: integer("cf"),
+  dr: integer("dr"),
+  traffic: integer("traffic"),
+  price: real("price"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
   updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
-// ── Backlinks ─────────────────────────────────────────────
-export const backlinks = sqliteTable("backlinks", {
+// ── Campaigns ─────────────────────────────────────────────
+export const campaigns = sqliteTable("campaigns", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  clientId: text("client_id").references(() => clients.id, { onDelete: "cascade" }).notNull(),
-  targetUrl: text("target_url").notNull(),
-  sourceDomain: text("source_domain").notNull(),
-  sourceUrl: text("source_url"),
-  anchor: text("anchor"),
-  status: text("status", { enum: ["contacted", "negotiation", "published", "rejected"] }).default("contacted"),
-  da: integer("da"),
-  dr: integer("dr"),
-  price: real("price"),
-  publishDate: text("publish_date"),
-  notes: text("notes"),
+  orgId: text("org_id").references(() => organizations.id, { onDelete: "cascade" }).notNull(),
+  name: text("name").notNull(),
+  budget: real("budget").default(0),
+  startDate: text("start_date"),
+  endDate: text("end_date"),
+  status: text("status", { enum: ["active", "completed", "late"] }).default("active"),
   createdAt: text("created_at").$defaultFn(() => new Date().toISOString()),
-  updatedAt: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
 // ── Alerts ────────────────────────────────────────────────
 export const alerts = sqliteTable("alerts", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
-  clientId: text("client_id").references(() => clients.id),
+  orgId: text("org_id").references(() => organizations.id, { onDelete: "cascade" }).notNull(),
   type: text("type", { enum: ["position_drop", "position_gain", "crawl_error", "content_due", "custom"] }).notNull(),
   title: text("title").notNull(),
   message: text("message"),

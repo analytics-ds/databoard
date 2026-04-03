@@ -1,6 +1,6 @@
 "use client";
 
-import { useStudy } from "@/lib/study-context";
+import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,11 +30,11 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 const BACKLINK_STATUSES = {
-  domain_to_validate: { label: "Domaine \u00e0 valider", color: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
-  article_writing: { label: "Article en r\u00e9daction", color: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
-  article_validated: { label: "Article valid\u00e9", color: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
-  published: { label: "Publi\u00e9", color: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
-  domain_rejected: { label: "Domaine refus\u00e9", color: "bg-red-100 text-red-700", dot: "bg-red-500" },
+  domain_to_validate: { label: "Domaine à valider", color: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
+  article_writing: { label: "Article en rédaction", color: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
+  article_validated: { label: "Article validé", color: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
+  published: { label: "Publié", color: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
+  domain_rejected: { label: "Domaine refusé", color: "bg-red-100 text-red-700", dot: "bg-red-500" },
 };
 
 type BacklinkStatus = keyof typeof BACKLINK_STATUSES;
@@ -50,17 +50,17 @@ const DEMO_BACKLINKS = [
 ];
 
 export default function NetlinkingPage() {
-  const { currentStudy } = useStudy();
+  const { organization } = useAuth();
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Backlinks"
-        description={`${currentStudy.clientName} (${currentStudy.domain})`}
+        description={`${organization?.name || ""} (${organization?.domain || ""})`}
       >
         <Button variant="outline" size="sm" className="gap-2">
           <Settings2 className="h-4 w-4" />
-          G\u00e9rer les colonnes 10/21
+          Gérer les colonnes 10/21
         </Button>
         <Button variant="outline" size="sm" className="gap-2">
           <Download className="h-4 w-4" />
@@ -70,7 +70,7 @@ export default function NetlinkingPage() {
 
       {/* Bulk select */}
       <Button variant="outline" size="sm" className="gap-1.5 text-xs border-primary text-primary">
-        S\u00e9lectionner tous les backlinks de la page
+        Sélectionner tous les backlinks de la page
       </Button>
 
       {/* Table */}
@@ -81,7 +81,7 @@ export default function NetlinkingPage() {
               <TableRow>
                 <TableHead className="w-8"><ChevronDown className="h-3 w-3" /></TableHead>
                 <TableHead className="w-8"><Checkbox /></TableHead>
-                <TableHead className="w-[180px]">Mot cl\u00e9</TableHead>
+                <TableHead className="w-[180px]">Mot clé</TableHead>
                 <TableHead className="w-[180px]">Domaine</TableHead>
                 <TableHead className="text-center w-14">DA</TableHead>
                 <TableHead className="text-center w-14">TF</TableHead>
@@ -118,7 +118,7 @@ export default function NetlinkingPage() {
                         <span className="text-xs">{statusConfig.label}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm">{link.price.toLocaleString("fr-FR")} \u20ac</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{link.price.toLocaleString("fr-FR")} €</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {(link.status === "domain_to_validate") && (
