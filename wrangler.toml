@@ -1,6 +1,16 @@
 name = "databoard"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "./out"
 
-[assets]
-directory = "./out"
+# D1 Database binding
+# IMPORTANT: Run this to create the database:
+#   npx wrangler d1 create databoard-db
+# Then paste the database_id below
+[[d1_databases]]
+binding = "DB"
+database_name = "databoard-db"
+database_id = "REPLACE_WITH_YOUR_DATABASE_ID"
+
+# After creating the DB, run migrations:
+#   npx wrangler d1 execute databoard-db --remote --file=migrations/0001_init.sql
