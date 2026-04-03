@@ -48,7 +48,7 @@ export default {
     }
 
     // Haloscan keyword research (available to all authenticated users)
-    if (path === "/api/haloscan" && request.method === "GET") {
+    if (path === "/api/haloscan" && (request.method === "GET" || request.method === "POST")) {
       return handleHaloscan(request, env);
     }
 
