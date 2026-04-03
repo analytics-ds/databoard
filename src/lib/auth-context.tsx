@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 interface User {
   id: string;
@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeClient, setActiveClientState] = useState<Organization | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   async function fetchSession() {
     try {
@@ -68,6 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setUser(null);
         setOrganization(null);
+        // Redirect to login if not on auth pages
+        if (!window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/register")) {
+          router.push("/login");
+        }
       }
     } catch {
       setUser(null);
