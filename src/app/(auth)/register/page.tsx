@@ -6,13 +6,16 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Building2, User, Mail, Lock, Globe } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [step, setStep] = useState<1 | 2>(1);
+
+  const [orgName, setOrgName] = useState("");
+  const [domain, setDomain] = useState("");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -24,8 +27,6 @@ export default function RegisterPage() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
     const confirmPassword = formData.get("confirmPassword") as string;
-    const organizationName = formData.get("organizationName") as string;
-    const domain = formData.get("domain") as string;
 
     if (password !== confirmPassword) {
       setError("Les mots de passe ne correspondent pas");
@@ -43,7 +44,13 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, organizationName, domain }),
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          organizationName: orgName,
+          domain: domain || undefined,
+        }),
       });
 
       const data = await res.json();
@@ -62,98 +69,183 @@ export default function RegisterPage() {
   }
 
   return (
-    <Card className="w-full max-w-md border-white/10 bg-white/5 shadow-2xl backdrop-blur-sm">
-      <CardHeader className="text-center">
-        <CardTitle className="text-xl text-white">Créer un compte</CardTitle>
-        <CardDescription className="text-blue-200/60">
-          Inscrivez-vous sur Databoard
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
-          {error && (
-            <div className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300 border border-red-500/20">
-              {error}
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-bold tracking-tight">Créer un compte</h1>
+        <p className="text-sm text-muted-foreground">
+          {step === 1
+            ? "Commencez par renseigner votre entreprise"
+            : "Créez votre compte administrateur"}
+        </p>
+      </div>
+
+      {/* Progress steps */}
+      <div className="flex items-center gap-3">
+        <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${step >= 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+          1
+        </div>
+        <div className={`h-0.5 flex-1 rounded ${step >= 2 ? "bg-primary" : "bg-muted"}`} />
+        <div className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${step >= 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+          2
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive border border-destructive/20">
+          {error}
+        </div>
+      )}
+
+      {step === 1 && (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="orgName">Nom de votre entreprise</Label>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="orgName"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                placeholder="Ex : Ma Société SAS"
+                required
+                className="pl-10"
+              />
             </div>
-          )}
-          <div className="space-y-2">
-            <Label htmlFor="organizationName" className="text-blue-100/80">Nom de votre entreprise / société</Label>
-            <Input
-              id="organizationName"
-              name="organizationName"
-              placeholder="Ex: Quitoque"
-              required
-              className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-blue-500"
-            />
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="domain" className="text-blue-100/80">Domaine (optionnel)</Label>
-            <Input
-              id="domain"
-              name="domain"
-              placeholder="quitoque.fr"
-              className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-blue-500"
-            />
+            <Label htmlFor="domain">
+              Nom de domaine <span className="text-muted-foreground font-normal">(optionnel)</span>
+            </Label>
+            <div className="relative">
+              <Globe className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="domain"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                placeholder="www.mon-site.fr"
+                className="pl-10"
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="name" className="text-blue-100/80">Votre nom complet</Label>
-            <Input
-              id="name"
-              name="name"
-              placeholder="Pierre Gaudard"
-              required
-              className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-blue-500"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-blue-100/80">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="pierre@datashake.fr"
-              required
-              className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-blue-500"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-blue-100/80">Mot de passe</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="Minimum 8 caractères"
-              required
-              minLength={8}
-              className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-blue-500"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword" className="text-blue-100/80">Confirmer le mot de passe</Label>
-            <Input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              placeholder="••••••••"
-              required
-              className="border-white/10 bg-white/5 text-white placeholder:text-white/30 focus:border-blue-500"
-            />
-          </div>
-          {/* Turnstile captcha will be added here when TURNSTILE_SITE_KEY is configured */}
-        </CardContent>
-        <CardFooter className="flex flex-col gap-3">
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Créer mon compte
+
+          <Button
+            className="w-full h-11"
+            onClick={() => {
+              if (!orgName.trim()) {
+                setError("Le nom de l'entreprise est requis");
+                return;
+              }
+              setError("");
+              setStep(2);
+            }}
+          >
+            Continuer
           </Button>
-          <p className="text-center text-sm text-blue-200/40">
-            Déjà un compte ?{" "}
-            <Link href="/login" className="text-blue-400 hover:text-blue-300">
-              Se connecter
-            </Link>
+        </div>
+      )}
+
+      {step === 2 && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+            <span className="text-muted-foreground">Entreprise :</span>{" "}
+            <span className="font-medium">{orgName}</span>
+            {domain && <span className="text-muted-foreground"> — {domain}</span>}
+            <button type="button" onClick={() => setStep(1)} className="ml-2 text-primary text-xs hover:underline">
+              Modifier
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="name">Votre nom complet</Label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="name"
+                name="name"
+                placeholder="Jean Dupont"
+                required
+                className="pl-10"
+                autoComplete="name"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Adresse email professionnelle</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="nom@entreprise.com"
+                required
+                className="pl-10"
+                autoComplete="email"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="password">Mot de passe</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="Min. 8 caractères"
+                  required
+                  minLength={8}
+                  className="pl-10"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmer</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  placeholder="Confirmez"
+                  required
+                  className="pl-10"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div id="cf-turnstile" className="flex justify-center" />
+
+          <p className="text-xs text-muted-foreground">
+            En créant un compte, vous acceptez nos{" "}
+            <Link href="#" className="text-primary hover:underline">conditions d&apos;utilisation</Link>
+            {" "}et notre{" "}
+            <Link href="#" className="text-primary hover:underline">politique de confidentialité</Link>.
           </p>
-        </CardFooter>
-      </form>
-    </Card>
+
+          <Button type="submit" className="w-full h-11" disabled={loading}>
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Créer mon compte"
+            )}
+          </Button>
+        </form>
+      )}
+
+      <p className="text-center text-sm text-muted-foreground">
+        Déjà un compte ?{" "}
+        <Link href="/login" className="font-medium text-primary hover:underline">
+          Se connecter
+        </Link>
+      </p>
+    </div>
   );
 }
