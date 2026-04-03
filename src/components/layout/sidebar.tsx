@@ -27,44 +27,44 @@ export function Sidebar() {
     <aside
       className={cn(
         "fixed left-0 top-0 z-40 flex h-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300",
-        collapsed ? "w-[72px]" : "w-[270px]"
+        collapsed ? "w-[72px]" : "w-[260px]"
       )}
     >
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
+      <div className="flex h-12 items-center gap-2.5 border-b border-sidebar-border px-3">
         <Image
           src="/datashake-icon.jpeg"
           alt="Datashake"
-          width={36}
-          height={36}
-          className="shrink-0 rounded-lg"
+          width={30}
+          height={30}
+          className="shrink-0 rounded-md"
         />
         {!collapsed && (
-          <div className="flex flex-col">
-            <span className="text-[15px] font-bold tracking-tight text-white">Databoard</span>
-            <span className="text-[9px] uppercase tracking-[0.15em] text-sidebar-foreground/40">
+          <div className="flex flex-col leading-none">
+            <span className="text-sm font-bold tracking-tight text-white">Databoard</span>
+            <span className="text-[8px] uppercase tracking-[0.15em] text-sidebar-foreground/40">
               by datashake
             </span>
           </div>
         )}
       </div>
 
-      {/* Client selector (admin/consultant) or org info (client/reader) */}
+      {/* Client selector */}
       {!collapsed && (
-        <div className="border-b border-sidebar-border p-3">
+        <div className="border-b border-sidebar-border px-2.5 py-2">
           {canSwitchClients && clients.length > 0 ? (
             <div className="relative">
               <button
                 onClick={() => setClientDropdownOpen(!clientDropdownOpen)}
-                className="flex w-full items-center gap-2.5 rounded-lg bg-sidebar-accent px-3 py-2.5 text-left hover:bg-sidebar-accent/80 transition-colors"
+                className="flex w-full items-center gap-2 rounded-md bg-sidebar-accent px-2.5 py-2 text-left hover:bg-sidebar-accent/80 transition-colors"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary/20">
-                  <Building2 className="h-4 w-4 text-sidebar-primary" />
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary/20">
+                  <Building2 className="h-3.5 w-3.5 text-sidebar-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-white">{activeClient?.name || "Sélectionner un client"}</p>
+                  <p className="truncate text-[13px] font-medium text-white">{activeClient?.name || "Sélectionner"}</p>
                   {activeClient?.domain && (
-                    <p className="truncate text-[11px] text-sidebar-foreground/50">{activeClient.domain}</p>
+                    <p className="truncate text-[10px] text-sidebar-foreground/50">{activeClient.domain}</p>
                   )}
                 </div>
                 <ChevronDown className={cn("h-3 w-3 shrink-0 text-sidebar-foreground/40 transition-transform", clientDropdownOpen && "rotate-180")} />
@@ -76,11 +76,11 @@ export function Sidebar() {
                     <button
                       key={client.id}
                       onClick={() => { setActiveClient(client); setClientDropdownOpen(false); }}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-sidebar-accent/50 first:rounded-t-lg last:rounded-b-lg"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-sidebar-accent/50 first:rounded-t-lg last:rounded-b-lg"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-white">{client.name}</p>
-                        {client.domain && <p className="truncate text-[11px] text-sidebar-foreground/50">{client.domain}</p>}
+                        {client.domain && <p className="truncate text-[10px] text-sidebar-foreground/50">{client.domain}</p>}
                       </div>
                       {client.id === activeClient?.id && (
                         <Check className="h-4 w-4 shrink-0 text-sidebar-primary" />
@@ -91,14 +91,14 @@ export function Sidebar() {
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-2.5 rounded-lg bg-sidebar-accent px-3 py-2.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary/20">
-                <Building2 className="h-4 w-4 text-sidebar-primary" />
+            <div className="flex items-center gap-2 rounded-md bg-sidebar-accent px-2.5 py-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary/20">
+                <Building2 className="h-3.5 w-3.5 text-sidebar-primary" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-white">{activeClient?.name || organization?.name}</p>
+                <p className="truncate text-[13px] font-medium text-white">{activeClient?.name || organization?.name}</p>
                 {(activeClient?.domain || organization?.domain) && (
-                  <p className="truncate text-[11px] text-sidebar-foreground/50">{activeClient?.domain || organization?.domain}</p>
+                  <p className="truncate text-[10px] text-sidebar-foreground/50">{activeClient?.domain || organization?.domain}</p>
                 )}
               </div>
             </div>
@@ -106,33 +106,32 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Navigation sections */}
-      <nav className="flex-1 overflow-y-auto px-3 py-3">
-        {NAV_SECTIONS.map((section, sIdx) => (
-          <div key={sIdx} className={cn(sIdx > 0 && "mt-5")}>
-            {/* Section label */}
-            {!collapsed && section.label && (
-              <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
-                {section.label}
-              </p>
-            )}
-            {collapsed && sIdx > 0 && (
-              <div className="mx-3 mb-2 border-t border-sidebar-border" />
-            )}
+      {/* Navigation — no scroll, everything visible */}
+      <nav className="flex-1 flex flex-col justify-between px-2.5 py-2">
+        <div>
+          {NAV_SECTIONS.map((section, sIdx) => (
+            <div key={sIdx} className={cn(sIdx > 0 && "mt-3")}>
+              {!collapsed && section.label && (
+                <p className="mb-1 px-2.5 text-[9px] font-semibold uppercase tracking-widest text-sidebar-foreground/30">
+                  {section.label}
+                </p>
+              )}
+              {collapsed && sIdx > 0 && (
+                <div className="mx-2.5 mb-1.5 border-t border-sidebar-border" />
+              )}
 
-            <ul className="space-y-0.5">
-              {section.items.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-                const hasChildren = item.children && item.children.length > 0;
-                const isSubmenuOpen = openSubmenu === item.href || isActive;
+              <ul className="space-y-px">
+                {section.items.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                  const hasChildren = item.children && item.children.length > 0;
+                  const isSubmenuOpen = openSubmenu === item.href || isActive;
 
-                return (
-                  <li key={item.href}>
-                    <div className="flex items-center">
+                  return (
+                    <li key={item.href}>
                       <Link
                         href={item.disabled ? "#" : (hasChildren ? item.children![0].href : item.href)}
                         className={cn(
-                          "flex flex-1 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors",
                           isActive
                             ? "bg-sidebar-accent text-white"
                             : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-white",
@@ -145,10 +144,10 @@ export function Sidebar() {
                           }
                         }}
                       >
-                        <item.icon className="h-[18px] w-[18px] shrink-0" />
+                        <item.icon className="h-4 w-4 shrink-0" />
                         {!collapsed && <span className="flex-1">{item.title}</span>}
                         {!collapsed && item.badge !== undefined && item.badge > 0 && (
-                          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
                             {item.badge}
                           </span>
                         )}
@@ -156,37 +155,37 @@ export function Sidebar() {
                           <ChevronDown className={cn("h-3 w-3 text-sidebar-foreground/40 transition-transform", isSubmenuOpen && "rotate-180")} />
                         )}
                       </Link>
-                    </div>
 
-                    {!collapsed && hasChildren && isSubmenuOpen && (
-                      <ul className="mt-0.5 ml-5 space-y-0.5 border-l border-sidebar-border pl-3">
-                        {item.children!.map((child) => {
-                          const isChildActive = pathname === child.href;
-                          return (
-                            <li key={child.href}>
-                              <Link
-                                href={child.href}
-                                className={cn(
-                                  "block rounded-md px-3 py-1.5 text-[13px] transition-colors",
-                                  isChildActive ? "text-white font-medium" : "text-sidebar-foreground/50 hover:text-white"
-                                )}
-                              >
-                                {child.title}
-                              </Link>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+                      {!collapsed && hasChildren && isSubmenuOpen && (
+                        <ul className="mt-px ml-4 space-y-px border-l border-sidebar-border pl-2.5">
+                          {item.children!.map((child) => {
+                            const isChildActive = pathname === child.href;
+                            return (
+                              <li key={child.href}>
+                                <Link
+                                  href={child.href}
+                                  className={cn(
+                                    "block rounded-md px-2.5 py-1 text-[12px] transition-colors",
+                                    isChildActive ? "text-white font-medium" : "text-sidebar-foreground/50 hover:text-white"
+                                  )}
+                                >
+                                  {child.title}
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
 
-        {/* Bottom nav (Alertes, Paramètres) */}
-        <div className="mt-5 border-t border-sidebar-border pt-3">
+        {/* Bottom nav pinned at bottom of nav area */}
+        <div className="border-t border-sidebar-border pt-2 mt-2">
           {BOTTOM_NAV.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             return (
@@ -194,14 +193,14 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors",
                   isActive ? "bg-sidebar-accent text-white" : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-white"
                 )}
               >
-                <item.icon className="h-[18px] w-[18px] shrink-0" />
+                <item.icon className="h-4 w-4 shrink-0" />
                 {!collapsed && <span className="flex-1">{item.title}</span>}
                 {!collapsed && item.badge !== undefined && item.badge > 0 && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
                     {item.badge}
                   </span>
                 )}
@@ -211,31 +210,31 @@ export function Sidebar() {
         </div>
       </nav>
 
-      {/* User profile */}
-      <div className="border-t border-sidebar-border p-3">
-        <div className={cn("flex items-center gap-3", collapsed ? "justify-center" : "px-3 py-2")}>
-          <Link href="/settings" className="flex items-center gap-3 flex-1 min-w-0 group">
+      {/* User profile — compact */}
+      <div className="border-t border-sidebar-border px-2.5 py-2">
+        <div className={cn("flex items-center gap-2.5", collapsed ? "justify-center" : "px-2.5")}>
+          <Link href="/settings" className="flex items-center gap-2.5 flex-1 min-w-0 group">
             {user?.avatarUrl ? (
               <img
                 src={user.avatarUrl}
                 alt={user.name}
-                className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-transparent group-hover:ring-sidebar-primary/50 transition-all"
+                className="h-8 w-8 shrink-0 rounded-full object-cover ring-2 ring-transparent group-hover:ring-sidebar-primary/50 transition-all"
               />
             ) : (
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sidebar-primary to-blue-400 text-xs font-bold text-white group-hover:ring-2 group-hover:ring-sidebar-primary/50 transition-all">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sidebar-primary to-blue-400 text-[11px] font-bold text-white group-hover:ring-2 group-hover:ring-sidebar-primary/50 transition-all">
                 {initials}
               </div>
             )}
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium text-white group-hover:text-sidebar-primary transition-colors">{user?.name}</p>
-                <p className="truncate text-[11px] text-sidebar-foreground/40 capitalize">{user?.role}</p>
+                <p className="truncate text-[13px] font-medium text-white group-hover:text-sidebar-primary transition-colors">{user?.name}</p>
+                <p className="truncate text-[10px] text-sidebar-foreground/40 capitalize">{user?.role}</p>
               </div>
             )}
           </Link>
           {!collapsed && (
             <button onClick={logout} className="text-sidebar-foreground/40 hover:text-white transition-colors" title="Déconnexion">
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
@@ -244,7 +243,7 @@ export function Sidebar() {
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-20 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm hover:text-foreground transition-colors"
+        className="absolute -right-3 top-16 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-sm hover:text-foreground transition-colors"
       >
         {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
       </button>

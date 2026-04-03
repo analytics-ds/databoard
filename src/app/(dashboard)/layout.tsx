@@ -27,7 +27,7 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
-      <div className="flex flex-1 flex-col pl-[270px] transition-all duration-300">
+      <div className="flex flex-1 flex-col pl-[260px] transition-all duration-300">
         <Topbar />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
