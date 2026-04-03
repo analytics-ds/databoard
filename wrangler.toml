@@ -13,3 +13,4 @@ database_id = "1af6b5d0-a66f-4606-a228-d608a79f9fc9"
 
 [vars]
 JWT_SECRET = "databoard-temp-dev-secret-change-in-production-2026"
+HALOSCAN_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoyNzQ1MCwiZGF0ZSI6MTc2Nzk3NzcxNTk3MSwiaWF0IjoxNzY3OTc3NzE1LCJleHAiOjIwODM1NTM3MTV9.sQW17YEmxXm6hZVI0YxB9nifelDm2SG3UVW_Zs9VnbU"

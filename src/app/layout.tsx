@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Databoard - Datashake",
+    default: "Databoard - datashake",
     template: "%s | Databoard",
   },
-  description: "Plateforme SEO tout-en-un par Datashake",
+  description: "Plateforme SEO tout-en-un par datashake",
 };
 
 export default function RootLayout({

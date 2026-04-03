@@ -15,8 +15,30 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
     return jsonResponse({ error: "Invalid session" }, 401);
   }
 
+  const role = payload.role as string;
+
+  // Get user's own org
   const org = await env.DB.prepare("SELECT id, name, domain FROM organizations WHERE id = ?")
     .bind(payload.orgId).first();
+
+  // For admin/consultant, also get their accessible clients
+  let clients: any[] = [];
+
+  if (role === "admin") {
+    // Admin sees ALL organizations
+    const result = await env.DB.prepare("SELECT id, name, domain FROM organizations ORDER BY name").all();
+    clients = result.results || [];
+  } else if (role === "consultant") {
+    // Consultant sees only assigned organizations
+    const result = await env.DB.prepare(
+      `SELECT o.id, o.name, o.domain
+       FROM organizations o
+       INNER JOIN consultant_clients cc ON cc.org_id = o.id
+       WHERE cc.consultant_id = ?
+       ORDER BY o.name`
+    ).bind(payload.userId).all();
+    clients = result.results || [];
+  }
 
   return jsonResponse({
     user: {
@@ -26,5 +48,6 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
       role: payload.role,
     },
     organization: org || null,
+    clients, // empty for client/reader, populated for admin/consultant
   });
 }

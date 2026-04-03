@@ -2,11 +2,15 @@ import { handleRegister } from "./auth/register";
 import { handleLogin } from "./auth/login";
 import { handleLogout } from "./auth/logout";
 import { handleMe } from "./auth/me";
+import { handleHaloscan } from "./api/haloscan";
+import { handleAdminClients } from "./api/admin-clients";
+import { handleInvite } from "./api/invite";
 
 export interface Env {
   DB: D1Database;
   JWT_SECRET: string;
   TURNSTILE_SECRET_KEY?: string;
+  HALOSCAN_API_KEY?: string;
 }
 
 export default {
@@ -14,7 +18,20 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // API routes
+    // CORS headers for API
+    if (path.startsWith("/api/")) {
+      if (request.method === "OPTIONS") {
+        return new Response(null, {
+          headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type",
+          },
+        });
+      }
+    }
+
+    // Auth routes
     if (path === "/api/auth/register" && request.method === "POST") {
       return handleRegister(request, env);
     }
@@ -28,7 +45,22 @@ export default {
       return handleMe(request, env);
     }
 
-    // Everything else is handled by the [assets] binding (static files)
+    // Haloscan keyword research (available to all authenticated users)
+    if (path === "/api/haloscan" && request.method === "GET") {
+      return handleHaloscan(request, env);
+    }
+
+    // Admin routes
+    if (path === "/api/admin/clients" && (request.method === "GET" || request.method === "POST")) {
+      return handleAdminClients(request, env);
+    }
+
+    // Invitation routes
+    if (path === "/api/invite" && request.method === "POST") {
+      return handleInvite(request, env);
+    }
+
+    // Static assets are handled by the [assets] binding
     return new Response("Not Found", { status: 404 });
   },
 };

@@ -21,7 +21,7 @@ export default function AuthLayout({
             Votre plateforme SEO<br />tout-en-un
           </h2>
           <p className="text-lg text-blue-200/70 max-w-md">
-            Suivi de positions, trafic, netlinking, gestion de projet et rédaction de contenu — tout au même endroit.
+            Suivi de positions, trafic, netlinking, gestion de projet et rédaction de contenu , tout au même endroit.
           </p>
           <div className="flex flex-col gap-3 text-sm text-blue-300/60">
             <div className="flex items-center gap-2">
@@ -44,7 +44,7 @@ export default function AuthLayout({
         </div>
 
         <p className="text-xs text-blue-300/30">
-          by Datashake — Agence SEO
+          by datashake
         </p>
       </div>
 

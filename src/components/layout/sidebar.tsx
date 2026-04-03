@@ -5,14 +5,15 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS, BOTTOM_NAV } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
-import { ChevronLeft, ChevronRight, ChevronDown, LogOut, Zap, Building2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, LogOut, Zap, Building2, Check } from "lucide-react";
 import { useState } from "react";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, organization, logout } = useAuth();
+  const { user, organization, activeClient, clients, setActiveClient, canSwitchClients, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
 
   const initials = user?.name
     ?.split(" ")
@@ -37,26 +38,66 @@ export function Sidebar() {
           <div className="flex flex-col">
             <span className="text-sm font-bold tracking-tight text-white">Databoard</span>
             <span className="text-[9px] uppercase tracking-widest text-sidebar-foreground/50">
-              by Datashake
+              by datashake
             </span>
           </div>
         )}
       </div>
 
-      {/* Organization info */}
-      {!collapsed && organization && (
+      {/* Client selector (admin/consultant) or org info (client/reader) */}
+      {!collapsed && (
         <div className="border-b border-sidebar-border p-3">
-          <div className="flex items-center gap-2.5 rounded-lg bg-sidebar-accent px-3 py-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary/20">
-              <Building2 className="h-4 w-4 text-sidebar-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-white">{organization.name}</p>
-              {organization.domain && (
-                <p className="truncate text-[11px] text-sidebar-foreground/50">{organization.domain}</p>
+          {canSwitchClients && clients.length > 0 ? (
+            <div className="relative">
+              <button
+                onClick={() => setClientDropdownOpen(!clientDropdownOpen)}
+                className="flex w-full items-center gap-2.5 rounded-lg bg-sidebar-accent px-3 py-2.5 text-left hover:bg-sidebar-accent/80 transition-colors"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary/20">
+                  <Building2 className="h-4 w-4 text-sidebar-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-white">{activeClient?.name || "Sélectionner"}</p>
+                  {activeClient?.domain && (
+                    <p className="truncate text-[11px] text-sidebar-foreground/50">{activeClient.domain}</p>
+                  )}
+                </div>
+                <ChevronDown className={cn("h-3 w-3 shrink-0 text-sidebar-foreground/40 transition-transform", clientDropdownOpen && "rotate-180")} />
+              </button>
+
+              {clientDropdownOpen && (
+                <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-lg border border-sidebar-border bg-sidebar shadow-xl">
+                  {clients.map((client) => (
+                    <button
+                      key={client.id}
+                      onClick={() => { setActiveClient(client); setClientDropdownOpen(false); }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-sidebar-accent/50 first:rounded-t-lg last:rounded-b-lg"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-white">{client.name}</p>
+                        {client.domain && <p className="truncate text-[11px] text-sidebar-foreground/50">{client.domain}</p>}
+                      </div>
+                      {client.id === activeClient?.id && (
+                        <Check className="h-4 w-4 shrink-0 text-sidebar-primary" />
+                      )}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-2.5 rounded-lg bg-sidebar-accent px-3 py-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary/20">
+                <Building2 className="h-4 w-4 text-sidebar-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-white">{activeClient?.name || organization?.name}</p>
+                {(activeClient?.domain || organization?.domain) && (
+                  <p className="truncate text-[11px] text-sidebar-foreground/50">{activeClient?.domain || organization?.domain}</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
