@@ -5,6 +5,7 @@ import { handleMe } from "./auth/me";
 import { handleHaloscan } from "./api/haloscan";
 import { handleAdminClients } from "./api/admin-clients";
 import { handleInvite } from "./api/invite";
+import { handleSeed } from "./api/seed";
 
 export interface Env {
   DB: D1Database;
@@ -58,6 +59,11 @@ export default {
     // Invitation routes
     if (path === "/api/invite" && request.method === "POST") {
       return handleInvite(request, env);
+    }
+
+    // Seed test data (temporary, remove in production)
+    if (path === "/api/seed" && request.method === "POST") {
+      return handleSeed(request, env);
     }
 
     // Static assets are handled by the [assets] binding
