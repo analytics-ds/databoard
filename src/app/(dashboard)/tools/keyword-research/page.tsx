@@ -5,11 +5,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Search, Loader2, Globe, BarChart3, ArrowUpDown, FileText,
-} from "lucide-react";
+import { Search, Loader2, Globe, BarChart3, ArrowUpDown, FileText } from "lucide-react";
 import { getPositionColor } from "@/lib/constants";
 
 async function haloscanCall(endpoint: string, params: Record<string, any>) {
@@ -23,12 +20,12 @@ async function haloscanCall(endpoint: string, params: Record<string, any>) {
 }
 
 function formatNum(n: number | undefined | null) {
-  if (n == null || isNaN(Number(n))) return "—";
+  if (n == null || isNaN(Number(n))) return "-";
   return Number(n).toLocaleString("fr-FR");
 }
 
 function CompetitionBar({ value }: { value: number }) {
-  const pct = Math.round((value > 1 ? value : value * 100));
+  const pct = Math.round(value > 1 ? value : value * 100);
   const color = pct < 30 ? "bg-emerald-500" : pct < 60 ? "bg-amber-500" : "bg-red-500";
   return (
     <div className="flex items-center gap-2">
@@ -40,37 +37,98 @@ function CompetitionBar({ value }: { value: number }) {
   );
 }
 
-function MiniBarChart({ data, labelKey, valueKey, color = "bg-primary" }: {
+function LineChart({ data, height = 160, color = "#2563eb", fillColor = "rgba(37,99,235,0.08)", showLabels = true, showValues = true }: {
   data: { label: string; value: number }[];
-  labelKey?: string;
-  valueKey?: string;
+  height?: number;
   color?: string;
+  fillColor?: string;
+  showLabels?: boolean;
+  showValues?: boolean;
 }) {
-  if (!data.length) return null;
+  if (data.length < 2) return null;
+  const padding = { top: showValues ? 24 : 8, right: 8, bottom: showLabels ? 24 : 8, left: 8 };
+  const w = 600;
+  const h = height;
+  const chartW = w - padding.left - padding.right;
+  const chartH = h - padding.top - padding.bottom;
   const max = Math.max(...data.map((d) => d.value));
+  const min = Math.min(...data.map((d) => d.value));
+  const range = max - min || 1;
+
+  const points = data.map((d, i) => ({
+    x: padding.left + (i / (data.length - 1)) * chartW,
+    y: padding.top + chartH - ((d.value - min) / range) * chartH,
+    ...d,
+  }));
+
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+  const areaPath = `${linePath} L${points[points.length - 1].x},${padding.top + chartH} L${points[0].x},${padding.top + chartH} Z`;
+
   return (
-    <div className="flex items-end gap-0.5 h-24">
-      {data.map((point, i) => {
-        const heightPct = max > 0 ? (point.value / max) * 100 : 0;
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }}>
+      <defs>
+        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.15" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {/* Grid lines */}
+      {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
+        <line key={pct} x1={padding.left} y1={padding.top + chartH * (1 - pct)} x2={w - padding.right} y2={padding.top + chartH * (1 - pct)} stroke="#e5e7eb" strokeWidth="0.5" />
+      ))}
+      {/* Area fill */}
+      <path d={areaPath} fill="url(#chartGrad)" />
+      {/* Line */}
+      <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      {/* Dots */}
+      {points.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r="3" fill="white" stroke={color} strokeWidth="1.5" />
+      ))}
+      {/* Values */}
+      {showValues && points.map((p, i) => {
+        if (data.length > 16 && i % 2 !== 0) return null;
         return (
-          <div key={i} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
-            <div className={`w-full ${color} rounded-t opacity-70 min-h-[2px]`} style={{ height: `${heightPct}%` }} />
-            <span className="text-[7px] text-muted-foreground truncate w-full text-center">{point.label}</span>
-          </div>
+          <text key={`v${i}`} x={p.x} y={p.y - 8} textAnchor="middle" className="text-[9px] fill-muted-foreground font-medium">
+            {formatNum(p.value)}
+          </text>
         );
       })}
-    </div>
+      {/* Labels */}
+      {showLabels && points.map((p, i) => {
+        const step = data.length > 20 ? 4 : data.length > 12 ? 2 : 1;
+        if (i % step !== 0 && i !== data.length - 1) return null;
+        return (
+          <text key={`l${i}`} x={p.x} y={h - 4} textAnchor="middle" className="text-[9px] fill-muted-foreground">
+            {p.label}
+          </text>
+        );
+      })}
+    </svg>
   );
 }
 
-// ── Main ─────────────────────────────────────────────────
+function MiniLine({ data, color = "#2563eb" }: { data: number[]; color?: string }) {
+  if (data.length < 2) return null;
+  const h = 32;
+  const w = 120;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  const points = data.map((v, i) => `${(i / (data.length - 1)) * w},${h - 2 - ((v - min) / range) * (h - 4)}`).join(" ");
+  return (
+    <svg width={w} height={h} className="shrink-0">
+      <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function KeywordResearchPage() {
   return (
     <div className="space-y-6">
-      <PageHeader title="Recherche de mots clés" description="Explorez les mots clés et analysez les domaines avec Haloscan" />
+      <PageHeader title="Recherche de mots cles" description="Explorez les mots cles et analysez les domaines avec Haloscan" />
       <Tabs defaultValue="keywords" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="keywords" className="gap-2"><Search className="h-4 w-4" />Mots clés</TabsTrigger>
+          <TabsTrigger value="keywords" className="gap-2"><Search className="h-4 w-4" />Mots cles</TabsTrigger>
           <TabsTrigger value="domain" className="gap-2"><Globe className="h-4 w-4" />Analyse de domaine</TabsTrigger>
           <TabsTrigger value="bulk" className="gap-2"><FileText className="h-4 w-4" />Volumes en masse</TabsTrigger>
         </TabsList>
@@ -82,7 +140,6 @@ export default function KeywordResearchPage() {
   );
 }
 
-// ── Tab 1: Keywords ──────────────────────────────────────
 function KeywordTab() {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -110,29 +167,27 @@ function KeywordTab() {
       ]);
       setOverview(overviewRes);
       setMatchResults(matchRes.results || []);
-    } catch (e: any) {
-      setError("Erreur lors de la recherche. Vérifiez votre clé API Haloscan.");
+    } catch {
+      setError("Erreur lors de la recherche. Verifiez votre cle API Haloscan.");
     } finally {
       setLoading(false);
     }
   }
 
-  // Parse Haloscan response
   const seoMetrics = overview?.seo_metrics || {};
   const adsMetrics = overview?.ads_metrics || {};
   const volume = adsMetrics.volume || seoMetrics.volume || 0;
   const cpc = adsMetrics.cpc || 0;
   const competition = adsMetrics.competition || 0;
 
-  // Volume history: timestamps → array
   const volumeHistory: { label: string; value: number }[] = [];
   if (overview?.volume_history?.results) {
     const entries = Object.entries(overview.volume_history.results) as [string, number][];
     entries.sort(([a], [b]) => Number(a) - Number(b));
-    for (const [ts, vol] of entries.slice(-12)) {
+    for (const [ts, vol] of entries.slice(-24)) {
       const d = new Date(Number(ts) * 1000);
       volumeHistory.push({
-        label: d.toLocaleDateString("fr-FR", { month: "short" }).slice(0, 3),
+        label: d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
         value: vol,
       });
     }
@@ -146,7 +201,7 @@ function KeywordTab() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Entrez un mot clé (ex: chaussures running)"
+                placeholder="Entrez un mot cle (ex: chaussures running)"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -167,15 +222,14 @@ function KeywordTab() {
 
       {overview && (
         <>
-          {/* KPIs */}
           <div className="grid grid-cols-3 gap-4">
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">Volume mensuel</p>
                 <p className="text-2xl font-bold">{formatNum(volume)}</p>
                 {volumeHistory.length > 0 && (
-                  <div className="mt-3">
-                    <MiniBarChart data={volumeHistory} />
+                  <div className="mt-2">
+                    <MiniLine data={volumeHistory.map((v) => v.value)} />
                   </div>
                 )}
               </CardContent>
@@ -183,9 +237,9 @@ function KeywordTab() {
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">CPC moyen</p>
-                <p className="text-2xl font-bold">{cpc.toFixed(2)} €</p>
+                <p className="text-2xl font-bold">{cpc.toFixed(2)} EUR</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  KGR: {seoMetrics.kgr?.toFixed(2) || "—"}
+                  KGR: {seoMetrics.kgr?.toFixed(2) || "-"}
                 </p>
               </CardContent>
             </Card>
@@ -194,16 +248,15 @@ function KeywordTab() {
                 <p className="text-xs text-muted-foreground mb-1">Concurrence</p>
                 <CompetitionBar value={competition} />
                 <p className="text-xs text-muted-foreground mt-2">
-                  {formatNum(seoMetrics.results_count)} résultats Google
+                  {formatNum(seoMetrics.results_count)} resultats Google
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Sub-tabs */}
           <div className="flex gap-1 border-b border-border">
             <button onClick={() => setSubTab("match")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${subTab === "match" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
-              Mots clés similaires ({matchResults.length})
+              Mots cles similaires ({matchResults.length})
             </button>
             <button onClick={() => setSubTab("history")} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${subTab === "history" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
               Historique de volume
@@ -215,22 +268,10 @@ function KeywordTab() {
           {subTab === "history" && volumeHistory.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Évolution du volume de recherche — « {query} »</CardTitle>
+                <CardTitle className="text-sm">Evolution du volume de recherche pour "{query}"</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-end gap-1 h-40">
-                  {volumeHistory.map((point, i) => {
-                    const max = Math.max(...volumeHistory.map((p) => p.value));
-                    const heightPct = max > 0 ? (point.value / max) * 100 : 0;
-                    return (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                        <span className="text-[9px] font-medium text-muted-foreground">{formatNum(point.value)}</span>
-                        <div className="w-full bg-primary rounded-t min-h-[2px] opacity-70" style={{ height: `${heightPct}%` }} />
-                        <span className="text-[9px] text-muted-foreground">{point.label}</span>
-                      </div>
-                    );
-                  })}
-                </div>
+                <LineChart data={volumeHistory} height={200} />
               </CardContent>
             </Card>
           )}
@@ -240,67 +281,81 @@ function KeywordTab() {
       {!overview && !loading && !error && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Search className="h-12 w-12 text-muted-foreground/30 mb-4" />
-          <p className="text-sm text-muted-foreground">Entrez un mot clé pour commencer votre recherche</p>
+          <p className="text-sm text-muted-foreground">Entrez un mot cle pour commencer votre recherche</p>
         </div>
       )}
     </div>
   );
 }
 
-// ── Tab 2: Domain ────────────────────────────────────────
 function DomainTab() {
   const [domain, setDomain] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [data, setData] = useState<any>(null);
   const [positions, setPositions] = useState<any[]>([]);
+  const [totalPositions, setTotalPositions] = useState(0);
+  const [positionPage, setPositionPage] = useState(1);
   const [domainSubTab, setDomainSubTab] = useState<"keywords" | "pages" | "visibility">("keywords");
 
   async function handleSearch() {
     if (!domain.trim()) return;
     setLoading(true);
     setError("");
+    setPositions([]);
+    setData(null);
     try {
-      const overviewRes = await haloscanCall("domains/overview", {
-        input: domain.trim(),
-        mode: "domain",
-        requested_data: ["metrics", "best_keywords", "best_pages", "visibility_index_history", "positions_breakdown_history"],
-      });
-      setData(overviewRes);
-
-      // Load all positions with pagination
-      let allPositions: any[] = [];
-      let page = 1;
-      let hasNext = true;
-      while (hasNext) {
-        const res = await haloscanCall("domains/positions", {
+      const [overviewRes, posRes] = await Promise.all([
+        haloscanCall("domains/overview", {
+          input: domain.trim(),
+          mode: "domain",
+          requested_data: ["metrics", "best_keywords", "best_pages", "visibility_index_history", "positions_breakdown_history"],
+        }),
+        haloscanCall("domains/positions", {
           input: domain.trim(),
           mode: "domain",
           lineCount: 100,
-          page,
+          page: 1,
           order_by: "traffic",
           order: "desc",
-        });
-        const results = res.results || [];
-        allPositions = [...allPositions, ...results];
-        hasNext = results.length === 100 && allPositions.length < 5000; // safety cap
-        page++;
-      }
-      setPositions(allPositions);
+        }),
+      ]);
+      setData(overviewRes);
+      setPositions(posRes.results || []);
+      setTotalPositions(posRes.total_result_count || posRes.filtered_result_count || 0);
+      setPositionPage(1);
     } catch {
-      setError("Erreur lors de l'analyse. Vérifiez le domaine et votre clé API.");
+      setError("Erreur lors de l'analyse. Verifiez le domaine et votre cle API.");
     } finally {
       setLoading(false);
     }
   }
 
-  // Parse domain metrics
+  async function loadMorePositions() {
+    const nextPage = positionPage + 1;
+    setLoadingMore(true);
+    try {
+      const res = await haloscanCall("domains/positions", {
+        input: domain.trim(),
+        mode: "domain",
+        lineCount: 100,
+        page: nextPage,
+        order_by: "traffic",
+        order: "desc",
+      });
+      setPositions((prev) => [...prev, ...(res.results || [])]);
+      setPositionPage(nextPage);
+    } catch {} finally {
+      setLoadingMore(false);
+    }
+  }
+
   const stats = data?.metrics?.stats;
   const visHistory = (data?.visibility_index_history?.results || []).map((p: any) => ({
-    label: new Date(p.agg_date).toLocaleDateString("fr-FR", { month: "short", day: "numeric" }).slice(0, 6),
+    label: new Date(p.agg_date).toLocaleDateString("fr-FR", { month: "short", day: "numeric" }),
     value: p.visibility_index || 0,
   }));
-  const bestKws = data?.best_keywords?.results || [];
   const bestPages = data?.best_pages?.results || [];
 
   return (
@@ -334,9 +389,9 @@ function DomainTab() {
         <>
           <div className="grid grid-cols-4 gap-4">
             {[
-              { label: "Mots clés", value: formatNum(stats.total_keyword_count) },
+              { label: "Mots cles", value: formatNum(stats.total_keyword_count) },
               { label: "Trafic organique", value: formatNum(stats.total_traffic) },
-              { label: "Valeur du trafic", value: `${formatNum(stats.traffic_value)} €` },
+              { label: "Valeur du trafic", value: `${formatNum(stats.traffic_value)} EUR` },
               { label: "Pages actives", value: formatNum(stats.active_page_count) },
             ].map((kpi) => (
               <Card key={kpi.label}>
@@ -365,12 +420,11 @@ function DomainTab() {
             ))}
           </div>
 
-          {/* Sub-tabs */}
           <div className="flex gap-1 border-b border-border">
             {[
-              { id: "keywords" as const, label: `Mots clés positionnés (${positions.length})` },
+              { id: "keywords" as const, label: `Mots cles positionnes (${totalPositions > 0 ? formatNum(totalPositions) : positions.length})` },
               { id: "pages" as const, label: `Meilleures pages (${bestPages.length})` },
-              { id: "visibility" as const, label: "Courbe de visibilité" },
+              { id: "visibility" as const, label: "Courbe de visibilite" },
             ].map((t) => (
               <button key={t.id} onClick={() => setDomainSubTab(t.id)} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${domainSubTab === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
                 {t.label}
@@ -379,7 +433,17 @@ function DomainTab() {
           </div>
 
           {domainSubTab === "keywords" && (
-            <KeywordTable data={positions} showPosition showTraffic showUrl />
+            <div className="space-y-3">
+              <KeywordTable data={positions} showPosition showTraffic showUrl />
+              {positions.length < totalPositions && (
+                <div className="flex items-center justify-center gap-3">
+                  <Button variant="outline" onClick={loadMorePositions} disabled={loadingMore} className="gap-2">
+                    {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Charger plus ({positions.length} / {formatNum(totalPositions)})
+                  </Button>
+                </div>
+              )}
+            </div>
           )}
 
           {domainSubTab === "pages" && bestPages.length > 0 && (
@@ -388,7 +452,7 @@ function DomainTab() {
                 <div className="divide-y divide-border">
                   <div className="grid grid-cols-[1fr_100px_100px] gap-4 px-4 py-2 bg-muted/50 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                     <span>URL</span>
-                    <span className="text-right">Mots clés</span>
+                    <span className="text-right">Mots cles</span>
                     <span className="text-right">Trafic</span>
                   </div>
                   {bestPages.map((page: any, i: number) => (
@@ -406,21 +470,10 @@ function DomainTab() {
           {domainSubTab === "visibility" && visHistory.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Indice de visibilité — {domain}</CardTitle>
+                <CardTitle className="text-sm">Indice de visibilite de {domain}</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex items-end gap-0.5 h-40">
-                  {visHistory.slice(-30).map((point: any, i: number) => {
-                    const max = Math.max(...visHistory.map((p: any) => p.value));
-                    const heightPct = max > 0 ? (point.value / max) * 100 : 0;
-                    return (
-                      <div key={i} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
-                        <div className="w-full bg-primary rounded-t min-h-[2px] opacity-70" style={{ height: `${heightPct}%` }} />
-                        {i % 5 === 0 && <span className="text-[7px] text-muted-foreground truncate">{point.label}</span>}
-                      </div>
-                    );
-                  })}
-                </div>
+                <LineChart data={visHistory} height={220} />
               </CardContent>
             </Card>
           )}
@@ -437,7 +490,6 @@ function DomainTab() {
   );
 }
 
-// ── Tab 3: Bulk ──────────────────────────────────────────
 function BulkTab() {
   const [keywords, setKeywords] = useState("");
   const [loading, setLoading] = useState(false);
@@ -453,7 +505,7 @@ function BulkTab() {
       const res = await haloscanCall("keywords/bulk", { keywords: kws });
       setResults(res.results || res.data || []);
     } catch {
-      setError("Erreur lors de la récupération des volumes.");
+      setError("Erreur lors de la recuperation des volumes.");
     } finally {
       setLoading(false);
     }
@@ -463,7 +515,7 @@ function BulkTab() {
     <div className="space-y-6">
       <Card>
         <CardContent className="p-4 space-y-4">
-          <p className="text-sm font-medium">Collez vos mots clés (un par ligne)</p>
+          <p className="text-sm font-medium">Collez vos mots cles (un par ligne)</p>
           <textarea
             className="w-full h-32 rounded-lg border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
             placeholder={"chaussures running\nbaskets homme\nsneakers pas cher"}
@@ -472,11 +524,11 @@ function BulkTab() {
           />
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
-              {keywords.split("\n").filter((k) => k.trim()).length} mots clés
+              {keywords.split("\n").filter((k) => k.trim()).length} mots cles
             </p>
             <Button onClick={handleSearch} disabled={loading || !keywords.trim()} className="gap-2">
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              Récupérer les volumes
+              Recuperer les volumes
             </Button>
           </div>
         </CardContent>
@@ -491,7 +543,6 @@ function BulkTab() {
   );
 }
 
-// ── Reusable Table ───────────────────────────────────────
 function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl = false }: {
   data: any[];
   showPosition?: boolean;
@@ -531,7 +582,7 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
       <CardContent className="p-0">
         <div className="divide-y divide-border">
           <div className={`grid gap-4 px-4 py-2 bg-muted/50 text-[11px] font-medium uppercase tracking-wider text-muted-foreground ${cols}`}>
-            <SortHeader label="Mot clé" field="keyword" />
+            <SortHeader label="Mot cle" field="keyword" />
             {showPosition && <SortHeader label="Pos." field="position" />}
             <SortHeader label="Volume" field="volume" />
             <SortHeader label="CPC" field="cpc" />
@@ -540,18 +591,18 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
           </div>
 
           {sorted.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-muted-foreground">Aucun résultat</div>
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">Aucun resultat</div>
           ) : (
             sorted.map((kw, i) => (
               <div key={i} className={`grid gap-4 px-4 py-2 hover:bg-muted/30 transition-colors items-center ${cols}`}>
                 <span className="text-sm font-medium truncate">{kw.keyword}</span>
                 {showPosition && (
                   <span className={`inline-flex h-6 w-10 items-center justify-center rounded text-xs font-bold ${getPositionColor(kw.position)}`}>
-                    {kw.position || "—"}
+                    {kw.position || "-"}
                   </span>
                 )}
                 <span className="text-sm font-medium">{formatNum(kw.volume)}</span>
-                <span className="text-sm text-muted-foreground">{kw.cpc != null ? `${Number(kw.cpc).toFixed(2)} €` : "—"}</span>
+                <span className="text-sm text-muted-foreground">{kw.cpc != null ? `${Number(kw.cpc).toFixed(2)} EUR` : "-"}</span>
                 {showTraffic ? <span className="text-sm">{formatNum(kw.traffic)}</span> : <CompetitionBar value={kw.competition || 0} />}
                 {showUrl && <span className="text-xs text-muted-foreground truncate">{kw.url}</span>}
               </div>
