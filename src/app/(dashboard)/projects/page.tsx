@@ -119,7 +119,7 @@ export default function ProjectsPage() {
   const [newWeekDate, setNewWeekDate] = useState(getNextMonday);
   const [newItems, setNewItems] = useState<
     { title: string; assignedTo: "client" | "datashake" }[]
-  >([{ title: "", assignedTo: "client" }]);
+  >([{ title: "", assignedTo: "client" }, { title: "", assignedTo: "datashake" }]);
   const [creating, setCreating] = useState(false);
 
   // --- Add item inline state ---
@@ -308,7 +308,7 @@ export default function ProjectsPage() {
       });
       setCreateOpen(false);
       setNewWeekDate(getNextMonday());
-      setNewItems([{ title: "", assignedTo: "client" }]);
+      setNewItems([{ title: "", assignedTo: "client" }, { title: "", assignedTo: "datashake" }]);
       fetchTodos();
     } catch {
       // ignore
