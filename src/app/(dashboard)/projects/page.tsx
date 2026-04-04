@@ -129,6 +129,10 @@ export default function ProjectsPage() {
     "client" | "datashake"
   >("client");
 
+  // --- History ---
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLimit, setHistoryLimit] = useState(20);
+
   // --- Fetch ---
   const fetchTodos = useCallback(async () => {
     if (!activeClient) return;
@@ -141,10 +145,6 @@ export default function ProjectsPage() {
       fetched.sort((a, b) => (b.weekDate > a.weekDate ? 1 : -1));
       setTodos(fetched);
       setLinkedTasks(data.linkedTasks ?? []);
-      // Expand the most recent one by default
-      if (fetched.length > 0) {
-        setExpandedIds(new Set([fetched[0].id]));
-      }
     } catch {
       // silently fail — empty state shown
     } finally {
@@ -682,237 +682,197 @@ export default function ProjectsPage() {
         </Card>
       )}
 
-      {/* Weekly to-do list */}
-      {!loading && todos.length > 0 && (
-        <div className="space-y-3">
-          {todos.map((todo) => {
-            const expanded = expandedIds.has(todo.id);
-            const done = doneCount(todo.items);
-            const total = todo.items.length;
-            const allDone = total > 0 && done === total;
-            const clientItems = todo.items.filter(
-              (i) => i.assignedTo === "client"
-            );
-            const datashakeItems = todo.items.filter(
-              (i) => i.assignedTo === "datashake"
-            );
+      {/* ── Latest to-do: 2-column layout ── */}
+      {!loading && todos.length > 0 && (() => {
+        const latest = todos[0];
+        const clientItems = latest.items.filter((i) => i.assignedTo === "client");
+        const datashakeItems = latest.items.filter((i) => i.assignedTo === "datashake");
+        const done = doneCount(latest.items);
+        const total = latest.items.length;
+        const allDone = total > 0 && done === total;
 
-            return (
-              <Card key={todo.id} className="overflow-hidden">
-                <CardHeader
-                  className="cursor-pointer select-none py-4 hover:bg-muted/30 transition-colors"
-                  onClick={() => toggleExpand(todo.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {expanded ? (
-                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                      )}
-                      <CardTitle className="text-base font-semibold">
-                        {formatWeekDate(todo.weekDate)}
-                      </CardTitle>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        variant={allDone ? "default" : "secondary"}
-                        className={cn(
-                          "text-xs",
-                          allDone &&
-                            "bg-emerald-500 hover:bg-emerald-600 text-white"
-                        )}
-                      >
-                        {done}/{total} terminée{total > 1 ? "s" : ""}
-                      </Badge>
-                      {!isReader && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (
-                              confirm(
-                                "Supprimer cette to-do hebdomadaire ?"
-                              )
-                            ) {
-                              deleteTodo(todo.id);
-                            }
-                          }}
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                          aria-label="Supprimer la to-do"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="mt-3 ml-8">
-                    <div className="h-1.5 w-full rounded-full bg-muted">
-                      <div
-                        className={cn(
-                          "h-1.5 rounded-full transition-all duration-300",
-                          allDone ? "bg-emerald-500" : "bg-primary"
-                        )}
-                        style={{
-                          width:
-                            total > 0 ? `${(done / total) * 100}%` : "0%",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </CardHeader>
-
-                {expanded && (
-                  <CardContent className="pt-0 pb-5 space-y-5">
-                    {/* Client items */}
-                    {renderItems(
-                      clientItems,
-                      `Pour ${activeClient?.name ?? "le client"}`
-                    )}
-
-                    {/* Datashake items */}
-                    {renderItems(datashakeItems, "Pour Datashake")}
-
-                    {/* Linked tasks for this week */}
-                    {(() => {
-                      const weekStart = new Date(todo.weekDate);
-                      const weekEnd = new Date(weekStart);
-                      weekEnd.setDate(weekEnd.getDate() + 6);
-                      const weekTasks = linkedTasks.filter((t) => {
-                        const d = new Date(t.dueDate);
-                        return d >= weekStart && d <= weekEnd;
-                      });
-                      if (weekTasks.length === 0) return null;
-                      return (
-                        <div className="space-y-2">
-                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                            Tâches de la semaine
-                          </p>
-                          <ul className="space-y-1.5">
-                            {weekTasks.map((task) => (
-                              <li key={task.id}>
-                                <Link
-                                  href="/projects/kanban"
-                                  className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50 group"
-                                >
-                                  <Badge variant="secondary" className="text-[10px] shrink-0">
-                                    {task.category}
-                                  </Badge>
-                                  <span className="flex-1 text-sm group-hover:text-primary transition-colors">
-                                    {task.title}
-                                  </span>
-                                  <Badge
-                                    variant="secondary"
-                                    className={cn("text-[10px]",
-                                      task.status === "done" ? "bg-emerald-100 text-emerald-700" :
-                                      task.status === "review" ? "bg-green-100 text-green-700" :
-                                      task.status === "brief_done" ? "bg-yellow-100 text-yellow-700" :
-                                      "bg-gray-100 text-gray-700"
-                                    )}
-                                  >
-                                    {task.status === "done" ? "Terminé" :
-                                     task.status === "review" ? "À relire" :
-                                     task.status === "brief_done" ? "Brief rédigé" :
-                                     "En prépa"}
-                                  </Badge>
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      );
-                    })()}
-
-                    {/* No items fallback */}
-                    {todo.items.length === 0 && linkedTasks.filter((t) => {
-                      const weekStart = new Date(todo.weekDate);
-                      const weekEnd = new Date(weekStart);
-                      weekEnd.setDate(weekEnd.getDate() + 6);
-                      const d = new Date(t.dueDate);
-                      return d >= weekStart && d <= weekEnd;
-                    }).length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">
-                        Aucune action pour cette semaine.
-                      </p>
-                    )}
-
-                    {/* Inline add item */}
+        return (
+          <div className="space-y-6">
+            {/* Header */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">{formatWeekDate(latest.weekDate)}</CardTitle>
+                  <div className="flex items-center gap-3">
+                    <Badge
+                      variant={allDone ? "default" : "secondary"}
+                      className={cn("text-xs", allDone && "bg-emerald-500 hover:bg-emerald-600 text-white")}
+                    >
+                      {done}/{total} terminée{total > 1 ? "s" : ""}
+                    </Badge>
                     {!isReader && (
-                      <div className="pt-2 border-t">
-                        {addingToTodo === todo.id ? (
-                          <div className="flex items-center gap-2">
-                            <Input
-                              className="flex-1"
-                              placeholder="Nouvelle action..."
-                              value={addItemTitle}
-                              onChange={(e) => setAddItemTitle(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") addItem(todo.id);
-                                if (e.key === "Escape") {
-                                  setAddingToTodo(null);
-                                  setAddItemTitle("");
-                                  setAddItemAssignedTo("client");
-                                }
-                              }}
-                              autoFocus
-                            />
-                            <select
-                              className="h-9 rounded-md border border-input bg-background px-2 text-xs"
-                              value={addItemAssignedTo}
-                              onChange={(e) => {
-                                const val = e.target.value as
-                                  | "client"
-                                  | "datashake";
-                                setAddItemAssignedTo(val);
-                              }}
-                            >
-                              <option value="client">Client</option>
-                              <option value="datashake">Datashake</option>
-                            </select>
-                            <Button
-                              size="sm"
-                              onClick={() => addItem(todo.id)}
-                            >
-                              Ajouter
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setAddingToTodo(null);
-                                setAddItemTitle("");
-                                setAddItemAssignedTo("client");
-                              }}
-                            >
-                              Annuler
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="gap-1.5 text-xs text-muted-foreground"
-                            onClick={() => {
-                              setAddingToTodo(todo.id);
-                              setAddItemTitle("");
-                              setAddItemAssignedTo("client");
-                            }}
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            Ajouter une action
-                          </Button>
-                        )}
-                      </div>
+                      <button
+                        onClick={() => { if (confirm("Supprimer cette to-do hebdomadaire ?")) deleteTodo(latest.id); }}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     )}
-                  </CardContent>
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <div className="h-1.5 w-full rounded-full bg-muted">
+                    <div
+                      className={cn("h-1.5 rounded-full transition-all duration-300", allDone ? "bg-emerald-500" : "bg-primary")}
+                      style={{ width: total > 0 ? `${(done / total) * 100}%` : "0%" }}
+                    />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0 pb-5">
+                {/* 2-column layout: client | datashake */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    {renderItems(clientItems, `Pour ${activeClient?.name ?? "le client"}`)}
+                    {clientItems.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Aucune action pour le client.</p>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    {renderItems(datashakeItems, "Pour Datashake")}
+                    {datashakeItems.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Aucune action pour Datashake.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Linked tasks */}
+                {(() => {
+                  const weekStart = new Date(latest.weekDate);
+                  const weekEnd = new Date(weekStart);
+                  weekEnd.setDate(weekEnd.getDate() + 6);
+                  const weekTasks = linkedTasks.filter((t) => {
+                    const d = new Date(t.dueDate);
+                    return d >= weekStart && d <= weekEnd;
+                  });
+                  if (weekTasks.length === 0) return null;
+                  return (
+                    <div className="mt-5 pt-4 border-t space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tâches de la semaine</p>
+                      <ul className="space-y-1.5">
+                        {weekTasks.map((task) => (
+                          <li key={task.id}>
+                            <Link href="/projects/kanban" className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50 group">
+                              <Badge variant="secondary" className="text-[10px] shrink-0">{task.category}</Badge>
+                              <span className="flex-1 text-sm group-hover:text-primary transition-colors">{task.title}</span>
+                              <Badge variant="secondary" className={cn("text-[10px]",
+                                task.status === "done" ? "bg-emerald-100 text-emerald-700" :
+                                task.status === "review" ? "bg-green-100 text-green-700" :
+                                task.status === "brief_done" ? "bg-yellow-100 text-yellow-700" :
+                                "bg-gray-100 text-gray-700"
+                              )}>
+                                {task.status === "done" ? "Terminé" : task.status === "review" ? "À relire" :
+                                 task.status === "brief_done" ? "Brief rédigé" : "En prépa"}
+                              </Badge>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })()}
+
+                {/* Inline add */}
+                {!isReader && (
+                  <div className="mt-4 pt-3 border-t">
+                    {addingToTodo === latest.id ? (
+                      <div className="flex items-center gap-2">
+                        <Input className="flex-1" placeholder="Nouvelle action..." value={addItemTitle}
+                          onChange={(e) => setAddItemTitle(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") addItem(latest.id); if (e.key === "Escape") { setAddingToTodo(null); setAddItemTitle(""); setAddItemAssignedTo("client"); } }}
+                          autoFocus />
+                        <select className="h-9 rounded-md border border-input bg-background px-2 text-xs" value={addItemAssignedTo}
+                          onChange={(e) => setAddItemAssignedTo(e.target.value as "client" | "datashake")}>
+                          <option value="client">Client</option>
+                          <option value="datashake">Datashake</option>
+                        </select>
+                        <Button size="sm" onClick={() => addItem(latest.id)}>Ajouter</Button>
+                        <Button size="sm" variant="ghost" onClick={() => { setAddingToTodo(null); setAddItemTitle(""); setAddItemAssignedTo("client"); }}>Annuler</Button>
+                      </div>
+                    ) : (
+                      <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground"
+                        onClick={() => { setAddingToTodo(latest.id); setAddItemTitle(""); setAddItemAssignedTo("client"); }}>
+                        <Plus className="h-3.5 w-3.5" />Ajouter une action
+                      </Button>
+                    )}
+                  </div>
                 )}
-              </Card>
-            );
-          })}
-        </div>
-      )}
+              </CardContent>
+            </Card>
+
+            {/* ── History toggle ── */}
+            {todos.length > 1 && (
+              <div className="space-y-3">
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => setShowHistory(!showHistory)}
+                >
+                  {showHistory ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  {showHistory ? "Masquer l'historique" : `Voir l'historique (${todos.length - 1} semaine${todos.length - 1 > 1 ? "s" : ""})`}
+                </Button>
+
+                {showHistory && (
+                  <div className="space-y-3">
+                    {todos.slice(1, 1 + historyLimit).map((todo) => {
+                      const expanded = expandedIds.has(todo.id);
+                      const hDone = doneCount(todo.items);
+                      const hTotal = todo.items.length;
+                      const hAllDone = hTotal > 0 && hDone === hTotal;
+                      const hClientItems = todo.items.filter((i) => i.assignedTo === "client");
+                      const hDatashakeItems = todo.items.filter((i) => i.assignedTo === "datashake");
+
+                      return (
+                        <Card key={todo.id} className="overflow-hidden">
+                          <CardHeader className="cursor-pointer select-none py-3 hover:bg-muted/30 transition-colors" onClick={() => toggleExpand(todo.id)}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {expanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                                <CardTitle className="text-sm font-medium">{formatWeekDate(todo.weekDate)}</CardTitle>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant={hAllDone ? "default" : "secondary"} className={cn("text-[10px]", hAllDone && "bg-emerald-500 text-white")}>
+                                  {hDone}/{hTotal} terminée{hTotal > 1 ? "s" : ""}
+                                </Badge>
+                                {!isReader && (
+                                  <button onClick={(e) => { e.stopPropagation(); if (confirm("Supprimer ?")) deleteTodo(todo.id); }}
+                                    className="text-muted-foreground hover:text-destructive transition-colors">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </CardHeader>
+                          {expanded && (
+                            <CardContent className="pt-0 pb-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>{renderItems(hClientItems, `Pour ${activeClient?.name ?? "le client"}`)}</div>
+                                <div>{renderItems(hDatashakeItems, "Pour Datashake")}</div>
+                              </div>
+                            </CardContent>
+                          )}
+                        </Card>
+                      );
+                    })}
+
+                    {/* Load more */}
+                    {todos.length - 1 > historyLimit && (
+                      <Button variant="outline" className="w-full" onClick={() => setHistoryLimit((l) => l + 20)}>
+                        Voir plus ({todos.length - 1 - historyLimit} restante{todos.length - 1 - historyLimit > 1 ? "s" : ""})
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
