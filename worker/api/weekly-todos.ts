@@ -98,22 +98,40 @@ export async function handleWeeklyTodos(request: Request, env: Env): Promise<Res
     if (!(await hasAccess(orgId))) return jsonResponse({ error: "Accès refusé" }, 403);
 
     const now = new Date().toISOString();
-    const todoId = crypto.randomUUID();
 
-    await env.DB.prepare(
-      "INSERT INTO weekly_todos (id, org_id, week_date, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
-    ).bind(todoId, orgId, weekDate, dbUser.id, now, now).run();
+    // Check if a to-do already exists for this week — if so, append items to it
+    const existing = await env.DB.prepare(
+      "SELECT id FROM weekly_todos WHERE org_id = ? AND week_date = ?"
+    ).bind(orgId, weekDate).first<{ id: string }>();
+
+    let todoId: string;
+    if (existing) {
+      todoId = existing.id;
+      // Update the timestamp
+      await env.DB.prepare("UPDATE weekly_todos SET updated_at = ? WHERE id = ?")
+        .bind(now, todoId).run();
+    } else {
+      todoId = crypto.randomUUID();
+      await env.DB.prepare(
+        "INSERT INTO weekly_todos (id, org_id, week_date, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+      ).bind(todoId, orgId, weekDate, dbUser.id, now, now).run();
+    }
+
+    // Get current max order to append after existing items
+    const maxOrder = await env.DB.prepare(
+      "SELECT MAX(\"order\") as max_order FROM todo_items WHERE todo_id = ?"
+    ).bind(todoId).first<{ max_order: number | null }>();
+    let order = (maxOrder?.max_order ?? -1) + 1;
 
     if (items && Array.isArray(items)) {
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
+      for (const item of items) {
         await env.DB.prepare(
           "INSERT INTO todo_items (id, todo_id, org_id, title, done, assigned_to, linked_task_id, \"order\", created_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)"
-        ).bind(crypto.randomUUID(), todoId, orgId, item.title, item.assignedTo || "client", item.linkedTaskId || null, i, now).run();
+        ).bind(crypto.randomUUID(), todoId, orgId, item.title, item.assignedTo || "client", item.linkedTaskId || null, order++, now).run();
       }
     }
 
-    return jsonResponse({ success: true, id: todoId });
+    return jsonResponse({ success: true, id: todoId, merged: !!existing });
   }
 
   if (request.method === "PUT") {
