@@ -596,59 +596,51 @@ export default function ProjectsPage() {
                   />
                 </div>
 
-                {/* Items */}
-                <div className="space-y-2">
-                  <Label>Actions</Label>
+                {/* Items grouped by assignee */}
+                <div className="space-y-4">
+                  {/* Client items */}
                   <div className="space-y-2">
-                    {newItems.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <Input
-                          className="flex-1"
-                          placeholder="Titre de l'action"
-                          value={item.title}
-                          onChange={(e) =>
-                            updateNewItemTitle(idx, e.target.value)
-                          }
-                        />
-                        <select
-                          key={`assignee-${idx}`}
-                          className="h-9 rounded-md border border-input bg-background px-2 text-xs"
-                          value={item.assignedTo}
-                          onChange={(e) => {
-                            const val = e.target.value as
-                              | "client"
-                              | "datashake";
-                            updateNewItemAssignedTo(idx, val);
-                          }}
-                        >
-                          <option value="client">Client</option>
-                          <option value="datashake">DATASHAKE</option>
-                        </select>
-                        {newItems.length > 1 && (
-                          <button
-                            onClick={() => removeNewItem(idx)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
+                    <Label>Actions pour {activeClient?.name || "le client"}</Label>
+                    {newItems.filter(i => i.assignedTo === "client").map((item) => {
+                      const realIdx = newItems.indexOf(item);
+                      return (
+                        <div key={realIdx} className="flex items-center gap-2">
+                          <Input className="flex-1" placeholder="Titre de l'action" value={item.title}
+                            onChange={(e) => updateNewItemTitle(realIdx, e.target.value)} />
+                          {newItems.length > 1 && (
+                            <button onClick={() => removeNewItem(realIdx)} className="text-muted-foreground hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs"
+                      onClick={() => setNewItems((prev) => [...prev, { title: "", assignedTo: "client" }])}>
+                      <Plus className="h-3 w-3" />Ajouter pour {activeClient?.name || "le client"}
+                    </Button>
+                  </div>
+
+                  {/* DATASHAKE items */}
+                  <div className="space-y-2">
+                    <Label>Actions pour DATASHAKE</Label>
+                    {newItems.filter(i => i.assignedTo === "datashake").map((item) => {
+                      const realIdx = newItems.indexOf(item);
+                      return (
+                        <div key={realIdx} className="flex items-center gap-2">
+                          <Input className="flex-1" placeholder="Titre de l'action" value={item.title}
+                            onChange={(e) => updateNewItemTitle(realIdx, e.target.value)} />
+                          <button onClick={() => removeNewItem(realIdx)} className="text-muted-foreground hover:text-destructive">
                             <Trash2 className="h-4 w-4" />
                           </button>
-                        )}
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
+                    <Button variant="outline" size="sm" className="gap-1.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                      onClick={() => setNewItems((prev) => [...prev, { title: "", assignedTo: "datashake" }])}>
+                      <Plus className="h-3 w-3" />Ajouter pour DATASHAKE
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs"
-                    onClick={() =>
-                      setNewItems((prev) => [
-                        ...prev,
-                        { title: "", assignedTo: "client" },
-                      ])
-                    }
-                  >
-                    <Plus className="h-3 w-3" />
-                    Ajouter une action
-                  </Button>
                 </div>
               </div>
 
