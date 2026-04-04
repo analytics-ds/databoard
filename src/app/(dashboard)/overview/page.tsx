@@ -165,7 +165,7 @@ function isOverdue(dueDate: string, status: string): boolean {
 // ---------------------------------------------------------------------------
 
 export default function OverviewPage() {
-  const { isAdmin, isConsultant, loading: authLoading } = useAuth();
+  const { isAdmin, isConsultant, clients, setActiveClient, loading: authLoading } = useAuth();
   const router = useRouter();
 
   const [data, setData] = useState<OverviewData | null>(null);
@@ -590,12 +590,16 @@ export default function OverviewPage() {
                                 ))}
                               </ul>
                               <div className="mt-3 pt-3 border-t">
-                                <Link
-                                  href="/projects"
+                                <button
+                                  onClick={() => {
+                                    const target = clients.find((c) => c.id === todo.orgId);
+                                    if (target) setActiveClient(target);
+                                    router.push("/projects");
+                                  }}
                                   className="text-xs text-primary hover:underline"
                                 >
                                   Voir le projet &rarr;
-                                </Link>
+                                </button>
                               </div>
                             </CardContent>
                           )}
@@ -696,7 +700,11 @@ export default function OverviewPage() {
                     <tr
                       key={task.id}
                       className="border-b last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
-                      onClick={() => router.push("/projects/kanban")}
+                      onClick={() => {
+                        const target = clients.find((c) => c.id === task.orgId);
+                        if (target) setActiveClient(target);
+                        router.push("/projects/kanban");
+                      }}
                     >
                       <td className="px-4 py-3 font-medium">{task.orgName}</td>
                       <td className="px-4 py-3 max-w-[300px] truncate">
