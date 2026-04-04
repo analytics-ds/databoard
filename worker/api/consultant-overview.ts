@@ -49,12 +49,18 @@ export async function handleConsultantOverview(request: Request, env: Env): Prom
   // Fetch all weekly todos for all orgs
   const placeholders = orgIds.map(() => "?").join(",");
 
+  // Only fetch the LATEST to-do per client (not full history)
   const todosResult = await env.DB.prepare(
     `SELECT wt.id, wt.org_id, wt.week_date, wt.created_at
      FROM weekly_todos wt
-     WHERE wt.org_id IN (${placeholders})
+     INNER JOIN (
+       SELECT org_id, MAX(week_date) as max_week
+       FROM weekly_todos
+       WHERE org_id IN (${placeholders})
+       GROUP BY org_id
+     ) latest ON wt.org_id = latest.org_id AND wt.week_date = latest.max_week
      ORDER BY wt.week_date DESC`
-  ).bind(...orgIds).all();
+  ).bind(...orgIds, ...orgIds).all();
 
   const todos = [];
   for (const t of (todosResult.results || [])) {
