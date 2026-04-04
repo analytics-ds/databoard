@@ -125,10 +125,8 @@ export default function ProjectsPage() {
   // --- Add item inline state ---
   const [addingToTodo, setAddingToTodo] = useState<string | null>(null);
   const [addItemTitle, setAddItemTitle] = useState("");
-  const addItemAssignedToRef = useRef<"client" | "datashake">("client");
-  const [addItemAssignedTo, setAddItemAssignedTo] = useState<"client" | "datashake">("client");
-  const addItemLinkedTaskRef = useRef<string>("");
-  const [addItemLinkedTask, setAddItemLinkedTask] = useState("");
+  const assignSelectRef = useRef<HTMLSelectElement>(null);
+  const taskSelectRef = useRef<HTMLSelectElement>(null);
 
   // --- Open tasks for linking ---
   const [openTasks, setOpenTasks] = useState<{ id: string; title: string; status: string }[]>([]);
@@ -199,9 +197,9 @@ export default function ProjectsPage() {
   // --- Add item ---
   async function addItem(todoId: string) {
     if (!activeClient || !addItemTitle.trim()) return;
-    // Read from refs to avoid stale closure
-    const assignedTo = addItemAssignedToRef.current;
-    const linkedTaskId = addItemLinkedTaskRef.current || null;
+    // Read directly from DOM selects to avoid any stale closure issues
+    const assignedTo = assignSelectRef.current?.value || "client";
+    const linkedTaskId = taskSelectRef.current?.value || null;
     try {
       await fetch("/api/weekly-todos", {
         method: "PUT",
@@ -218,10 +216,6 @@ export default function ProjectsPage() {
         }),
       });
       setAddItemTitle("");
-      setAddItemAssignedTo("client");
-      addItemAssignedToRef.current = "client";
-      setAddItemLinkedTask("");
-      addItemLinkedTaskRef.current = "";
       setAddingToTodo(null);
       fetchTodos();
     } catch {
@@ -802,21 +796,19 @@ export default function ProjectsPage() {
                         <div className="flex items-center gap-2">
                           <Input className="flex-1" placeholder="Nouvelle action..." value={addItemTitle}
                             onChange={(e) => setAddItemTitle(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") addItem(latest.id); if (e.key === "Escape") { setAddingToTodo(null); setAddItemTitle(""); setAddItemAssignedTo("client"); addItemAssignedToRef.current = "client"; } }}
+                            onKeyDown={(e) => { if (e.key === "Enter") addItem(latest.id); if (e.key === "Escape") { setAddingToTodo(null); setAddItemTitle(""); } }}
                             autoFocus />
-                          <select className="h-9 rounded-md border border-input bg-background px-2 text-xs" value={addItemAssignedTo}
-                            onChange={(e) => { const v = e.target.value as "client" | "datashake"; setAddItemAssignedTo(v); addItemAssignedToRef.current = v; }}>
+                          <select ref={assignSelectRef} className="h-9 rounded-md border border-input bg-background px-2 text-xs" defaultValue="client">
                             <option value="client">Client</option>
                             <option value="datashake">Datashake</option>
                           </select>
                           <Button size="sm" onClick={() => addItem(latest.id)}>Ajouter</Button>
-                          <Button size="sm" variant="ghost" onClick={() => { setAddingToTodo(null); setAddItemTitle(""); setAddItemAssignedTo("client"); addItemAssignedToRef.current = "client"; setAddItemLinkedTask(""); addItemLinkedTaskRef.current = ""; }}>Annuler</Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setAddingToTodo(null); setAddItemTitle(""); }}>Annuler</Button>
                         </div>
                         {openTasks.length > 0 && (
                           <div className="flex items-center gap-2 pl-1">
                             <Link2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <select className="h-8 rounded-md border border-input bg-background px-2 text-xs flex-1" value={addItemLinkedTask}
-                              onChange={(e) => { setAddItemLinkedTask(e.target.value); addItemLinkedTaskRef.current = e.target.value; }}>
+                            <select ref={taskSelectRef} className="h-8 rounded-md border border-input bg-background px-2 text-xs flex-1" defaultValue="">
                               <option value="">Lier à une tâche (optionnel)</option>
                               {openTasks.map((t) => (
                                 <option key={t.id} value={t.id}>{t.title}</option>
@@ -827,7 +819,7 @@ export default function ProjectsPage() {
                       </div>
                     ) : (
                       <Button variant="ghost" size="sm" className="gap-1.5 text-xs text-muted-foreground"
-                        onClick={() => { setAddingToTodo(latest.id); setAddItemTitle(""); setAddItemAssignedTo("client"); }}>
+                        onClick={() => { setAddingToTodo(latest.id); setAddItemTitle(""); }}>
                         <Plus className="h-3.5 w-3.5" />Ajouter une action
                       </Button>
                     )}
