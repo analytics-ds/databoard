@@ -12,6 +12,10 @@ import { handleProjectTeam } from "./api/project-team";
 import { handleTeamManage } from "./api/team-manage";
 import { handleOrgDetails } from "./api/org-details";
 import { handleOrgLogo } from "./api/org-logo";
+import { handleWeeklyTodos } from "./api/weekly-todos";
+import { handleMeetingReports } from "./api/meeting-reports";
+import { handleWorkDocuments } from "./api/work-documents";
+import { handleResources } from "./api/resources";
 
 export interface Env {
   DB: D1Database;
@@ -95,6 +99,26 @@ export default {
     // Organization logo upload
     if (path === "/api/org-logo" && request.method === "PUT") {
       return handleOrgLogo(request, env);
+    }
+
+    // Weekly to-dos
+    if (path === "/api/weekly-todos") {
+      return handleWeeklyTodos(request, env);
+    }
+
+    // Meeting reports
+    if (path === "/api/meeting-reports") {
+      return handleMeetingReports(request, env);
+    }
+
+    // Work documents
+    if (path === "/api/work-documents") {
+      return handleWorkDocuments(request, env);
+    }
+
+    // Resources / guides
+    if (path === "/api/resources") {
+      return handleResources(request, env);
     }
 
     // Seed test data (temporary, remove in production)

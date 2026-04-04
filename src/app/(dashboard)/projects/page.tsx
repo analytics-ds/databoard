@@ -1,15 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -18,169 +16,555 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Calendar, Download, Archive } from "lucide-react";
+import {
+  Plus,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
+  Loader2,
+  CheckCircle2,
+  Circle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TASK_TYPE_CONFIG } from "@/lib/constants";
 
-type TaskStatus = "todo" | "in_progress" | "done";
-type TaskType = keyof typeof TASK_TYPE_CONFIG;
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
-interface DemoTask {
+interface TodoItem {
   id: string;
   title: string;
-  status: TaskStatus;
-  type: TaskType;
-  keyword?: string;
-  assigneeInitials?: string;
-  dueDate?: string;
-  overdue?: boolean;
+  done: boolean;
+  assignedTo: "client" | "datashake";
+  order: number;
 }
 
-const DEMO_TASKS: DemoTask[] = [
-  { id: "1", title: "LP : batch cooking automne", status: "todo", type: "content", keyword: "batch cooking automne" },
-  { id: "2", title: "LP : batch cooking ete", status: "todo", type: "content", keyword: "batch cooking ete" },
-  { id: "3", title: "LP : régime méditerranéen menu semaine", status: "todo", type: "content", keyword: "régime méditerranéen menu semaine" },
-  { id: "4", title: "Optimisation balises title x20", status: "todo", type: "technique" },
-  { id: "5", title: "Backlink : les-calories.com", status: "in_progress", type: "netlinking", dueDate: "24 juin", overdue: true },
-  { id: "6", title: "Rédaction article panier repas", status: "in_progress", type: "content" },
-  { id: "7", title: "Backlink : recettehealthy.com", status: "done", type: "netlinking", dueDate: "27 novembre" },
-  { id: "8", title: "MAJ contenu + images LP Pâques", status: "done", type: "content", assigneeInitials: "K.B" },
-  { id: "9", title: "Audit technique complet", status: "done", type: "audit" },
-  { id: "10", title: "Setup GA4 events", status: "done", type: "technique" },
-];
+interface WeeklyTodo {
+  id: string;
+  weekDate: string; // ISO date string (Monday of the week)
+  createdBy: string;
+  items: TodoItem[];
+}
 
-const COLUMNS: { status: TaskStatus; title: string }[] = [
-  { status: "todo", title: "A FAIRE" },
-  { status: "in_progress", title: "EN COURS" },
-  { status: "done", title: "RÉALISÉES" },
-];
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function formatWeekDate(isoDate: string): string {
+  const d = new Date(isoDate);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `Semaine du ${day}/${month}/${year}`;
+}
+
+function getNextMonday(): string {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun … 6=Sat
+  const diff = day === 0 ? 1 : 8 - day;
+  const next = new Date(now);
+  next.setDate(now.getDate() + diff);
+  return next.toISOString().slice(0, 10);
+}
+
+function doneCount(items: TodoItem[]): number {
+  return items.filter((i) => i.done).length;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export default function ProjectsPage() {
-  const { organization } = useAuth();
-  const [tasks, setTasks] = useState(DEMO_TASKS);
+  const { activeClient, isReader } = useAuth();
+
+  const [todos, setTodos] = useState<WeeklyTodo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // --- Create dialog state ---
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newWeekDate, setNewWeekDate] = useState(getNextMonday);
+  const [newItems, setNewItems] = useState<{ title: string; assignedTo: "client" | "datashake" }[]>([
+    { title: "", assignedTo: "client" },
+  ]);
+  const [creating, setCreating] = useState(false);
+
+  // --- Add item inline state ---
+  const [addingToTodo, setAddingToTodo] = useState<string | null>(null);
+  const [addItemTitle, setAddItemTitle] = useState("");
+  const [addItemAssignedTo, setAddItemAssignedTo] = useState<"client" | "datashake">("client");
+
+  // --- Fetch ---
+  const fetchTodos = useCallback(async () => {
+    if (!activeClient) return;
+    try {
+      const res = await fetch(`/api/weekly-todos?org_id=${activeClient.id}`);
+      if (!res.ok) throw new Error("Fetch failed");
+      const data = await res.json();
+      const fetched: WeeklyTodo[] = data.todos ?? [];
+      // Sort most recent first
+      fetched.sort((a, b) => (b.weekDate > a.weekDate ? 1 : -1));
+      setTodos(fetched);
+      // Expand the most recent one by default
+      if (fetched.length > 0) {
+        setExpandedIds(new Set([fetched[0].id]));
+      }
+    } catch {
+      // silently fail — empty state shown
+    } finally {
+      setLoading(false);
+    }
+  }, [activeClient]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchTodos();
+  }, [fetchTodos]);
+
+  // --- Toggle item ---
+  async function toggleItem(item: TodoItem) {
+    if (!activeClient) return;
+    // Optimistic update
+    setTodos((prev) =>
+      prev.map((t) => ({
+        ...t,
+        items: t.items.map((i) => (i.id === item.id ? { ...i, done: !i.done } : i)),
+      }))
+    );
+    try {
+      await fetch("/api/weekly-todos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "toggle_item",
+          orgId: activeClient.id,
+          itemId: item.id,
+          done: !item.done,
+        }),
+      });
+    } catch {
+      // revert on error
+      fetchTodos();
+    }
+  }
+
+  // --- Add item ---
+  async function addItem(todoId: string) {
+    if (!activeClient || !addItemTitle.trim()) return;
+    try {
+      await fetch("/api/weekly-todos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add_item",
+          orgId: activeClient.id,
+          todoId,
+          title: addItemTitle.trim(),
+          assignedTo: addItemAssignedTo,
+        }),
+      });
+      setAddItemTitle("");
+      setAddingToTodo(null);
+      fetchTodos();
+    } catch {
+      // ignore
+    }
+  }
+
+  // --- Remove item ---
+  async function removeItem(itemId: string) {
+    if (!activeClient) return;
+    setTodos((prev) =>
+      prev.map((t) => ({
+        ...t,
+        items: t.items.filter((i) => i.id !== itemId),
+      }))
+    );
+    try {
+      await fetch("/api/weekly-todos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "remove_item",
+          orgId: activeClient.id,
+          itemId,
+        }),
+      });
+    } catch {
+      fetchTodos();
+    }
+  }
+
+  // --- Delete weekly to-do ---
+  async function deleteTodo(todoId: string) {
+    if (!activeClient) return;
+    setTodos((prev) => prev.filter((t) => t.id !== todoId));
+    try {
+      await fetch("/api/weekly-todos", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ todoId, orgId: activeClient.id }),
+      });
+    } catch {
+      fetchTodos();
+    }
+  }
+
+  // --- Create weekly to-do ---
+  async function createTodo() {
+    if (!activeClient) return;
+    const validItems = newItems.filter((i) => i.title.trim());
+    if (!newWeekDate || validItems.length === 0) return;
+    setCreating(true);
+    try {
+      await fetch("/api/weekly-todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orgId: activeClient.id,
+          weekDate: newWeekDate,
+          items: validItems.map((i) => ({ title: i.title.trim(), assignedTo: i.assignedTo })),
+        }),
+      });
+      setCreateOpen(false);
+      setNewWeekDate(getNextMonday());
+      setNewItems([{ title: "", assignedTo: "client" }]);
+      fetchTodos();
+    } catch {
+      // ignore
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  // --- Expand / collapse ---
+  function toggleExpand(id: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // --- Render helpers ---
+  function renderItems(items: TodoItem[], label: string) {
+    if (items.length === 0) return null;
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </p>
+        <ul className="space-y-1.5">
+          {items
+            .sort((a, b) => a.order - b.order)
+            .map((item) => (
+              <li key={item.id} className="group flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
+                <button
+                  onClick={() => toggleItem(item)}
+                  className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                  aria-label={item.done ? "Marquer comme non terminé" : "Marquer comme terminé"}
+                >
+                  {item.done ? (
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                  ) : (
+                    <Circle className="h-5 w-5" />
+                  )}
+                </button>
+                <span
+                  className={cn(
+                    "flex-1 text-sm",
+                    item.done && "line-through text-muted-foreground"
+                  )}
+                >
+                  {item.title}
+                </span>
+                {!isReader && (
+                  <button
+                    onClick={() => removeItem(item.id)}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                    aria-label="Supprimer"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </li>
+            ))}
+        </ul>
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Tâches"
-        description={`Étude (${organization?.domain || ""}) — Société (${organization?.name || ""})`}
-      />
+      <PageHeader title="To-do hebdo" description={activeClient ? `${activeClient.name}` : undefined}>
+        {!isReader && (
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger render={<Button size="sm" className="gap-1.5" />}>
+              <Plus className="h-4 w-4" />
+              Nouvelle to-do
+            </DialogTrigger>
 
-      {/* Filters bar like SmartKeyword */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2">
-          <Label className="text-sm text-muted-foreground shrink-0">Date d&apos;échéance</Label>
-          <Input type="date" className="h-8 w-32 text-xs" placeholder="Date de début" />
-          <span className="text-xs text-muted-foreground">à</span>
-          <Input type="date" className="h-8 w-32 text-xs" placeholder="Date de fin" />
-        </div>
-        <Button variant="outline" size="sm" className="text-xs">Filtrer par type</Button>
-        <Button variant="outline" size="sm" className="text-xs">Filtrer par utilisateur</Button>
-        <Button variant="outline" size="sm" className="text-xs">Suivi par</Button>
-        <Button variant="outline" size="sm" className="text-xs gap-1.5">
-          <Archive className="h-3 w-3" />Tâches archivées
-        </Button>
-        <Button variant="outline" size="sm" className="text-xs gap-1.5">
-          <Download className="h-3 w-3" />Exporter les tâches
-        </Button>
-      </div>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Nouvelle to-do hebdomadaire</DialogTitle>
+              </DialogHeader>
 
-      {/* Kanban Board - 3 columns like SmartKeyword */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {COLUMNS.map((col) => {
-          const columnTasks = tasks.filter((t) => t.status === col.status);
-          return (
-            <div key={col.status}>
-              <div className="mb-3 text-center">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{col.title}</h3>
-              </div>
-              <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4 min-h-[300px]">
-                {/* Add task button */}
-                <Dialog>
-                  <DialogTrigger render={<Button variant="outline" size="sm" className="w-full gap-1.5 text-xs border-dashed" />}>
+              <div className="space-y-4 py-2">
+                {/* Week date */}
+                <div className="space-y-2">
+                  <Label>Semaine du (lundi)</Label>
+                  <Input
+                    type="date"
+                    value={newWeekDate}
+                    onChange={(e) => setNewWeekDate(e.target.value)}
+                  />
+                </div>
+
+                {/* Items */}
+                <div className="space-y-2">
+                  <Label>Actions</Label>
+                  <div className="space-y-2">
+                    {newItems.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <Input
+                          className="flex-1"
+                          placeholder="Titre de l'action"
+                          value={item.title}
+                          onChange={(e) => {
+                            const copy = [...newItems];
+                            copy[idx] = { ...copy[idx], title: e.target.value };
+                            setNewItems(copy);
+                          }}
+                        />
+                        <select
+                          className="h-9 rounded-md border border-input bg-background px-2 text-xs"
+                          value={item.assignedTo}
+                          onChange={(e) => {
+                            const copy = [...newItems];
+                            copy[idx] = { ...copy[idx], assignedTo: e.target.value as "client" | "datashake" };
+                            setNewItems(copy);
+                          }}
+                        >
+                          <option value="client">Client</option>
+                          <option value="datashake">Datashake</option>
+                        </select>
+                        {newItems.length > 1 && (
+                          <button
+                            onClick={() => setNewItems(newItems.filter((_, i) => i !== idx))}
+                            className="text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() =>
+                      setNewItems([...newItems, { title: "", assignedTo: "client" }])
+                    }
+                  >
                     <Plus className="h-3 w-3" />
-                    Ajouter une tâche
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Nouvelle tâche</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label>Titre</Label>
-                        <Input placeholder="Titre de la tâche" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Description</Label>
-                        <Textarea rows={3} />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Type</Label>
-                          <Select>
-                            <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="content">Content</SelectItem>
-                              <SelectItem value="netlinking">Netlinking</SelectItem>
-                              <SelectItem value="technique">Technique</SelectItem>
-                              <SelectItem value="audit">Audit</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Date d&apos;échéance</Label>
-                          <Input type="date" />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Mot clé associé</Label>
-                        <Input placeholder="Ex: batch cooking" />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button>Créer</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-
-                {columnTasks.map((task) => (
-                  <Card key={task.id} className="cursor-pointer transition-shadow hover:shadow-md">
-                    <CardContent className="p-4">
-                      {/* Color bar */}
-                      <div className={cn(
-                        "h-1 w-16 rounded-full mb-3",
-                        task.type === "content" ? "bg-blue-500" : task.type === "netlinking" ? "bg-purple-500" : task.type === "technique" ? "bg-orange-500" : "bg-pink-500"
-                      )} />
-
-                      <h4 className="text-sm font-medium mb-3">{task.title}</h4>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary" className={cn("text-[10px]", TASK_TYPE_CONFIG[task.type].color)}>
-                          {TASK_TYPE_CONFIG[task.type].label}
-                        </Badge>
-                        {task.keyword && (
-                          <Badge variant="secondary" className="text-[10px] bg-gray-100 text-gray-600">
-                            {task.keyword}
-                          </Badge>
-                        )}
-                        {task.dueDate && (
-                          <span className={cn("flex items-center gap-1 text-[10px]", task.overdue ? "text-red-500" : "text-muted-foreground")}>
-                            <Calendar className="h-3 w-3" />
-                            {task.overdue && "⚠"} {task.dueDate}
-                          </span>
-                        )}
-                        {task.assigneeInitials && (
-                          <span className="ml-auto text-xs font-medium text-muted-foreground">{task.assigneeInitials}</span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    Ajouter une action
+                  </Button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+
+              <DialogFooter>
+                <Button onClick={createTodo} disabled={creating}>
+                  {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Créer
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+      </PageHeader>
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!loading && todos.length === 0 && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <CheckCircle2 className="h-10 w-10 text-muted-foreground/40 mb-3" />
+            <p className="text-sm text-muted-foreground">
+              Aucune to-do hebdomadaire pour le moment.
+            </p>
+            {!isReader && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Cliquez sur &laquo;&nbsp;Nouvelle to-do&nbsp;&raquo; pour commencer.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Weekly to-do list */}
+      {!loading && todos.length > 0 && (
+        <div className="space-y-3">
+          {todos.map((todo) => {
+            const expanded = expandedIds.has(todo.id);
+            const done = doneCount(todo.items);
+            const total = todo.items.length;
+            const allDone = total > 0 && done === total;
+            const clientItems = todo.items.filter((i) => i.assignedTo === "client");
+            const datashakeItems = todo.items.filter((i) => i.assignedTo === "datashake");
+
+            return (
+              <Card key={todo.id} className="overflow-hidden">
+                <CardHeader
+                  className="cursor-pointer select-none py-4 hover:bg-muted/30 transition-colors"
+                  onClick={() => toggleExpand(todo.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {expanded ? (
+                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                      )}
+                      <CardTitle className="text-base font-semibold">
+                        {formatWeekDate(todo.weekDate)}
+                      </CardTitle>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        variant={allDone ? "default" : "secondary"}
+                        className={cn(
+                          "text-xs",
+                          allDone && "bg-emerald-500 hover:bg-emerald-600 text-white"
+                        )}
+                      >
+                        {done}/{total} terminée{total > 1 ? "s" : ""}
+                      </Badge>
+                      {!isReader && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm("Supprimer cette to-do hebdomadaire ?")) {
+                              deleteTodo(todo.id);
+                            }
+                          }}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          aria-label="Supprimer la to-do"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="mt-3 ml-8">
+                    <div className="h-1.5 w-full rounded-full bg-muted">
+                      <div
+                        className={cn(
+                          "h-1.5 rounded-full transition-all duration-300",
+                          allDone ? "bg-emerald-500" : "bg-primary"
+                        )}
+                        style={{ width: total > 0 ? `${(done / total) * 100}%` : "0%" }}
+                      />
+                    </div>
+                  </div>
+                </CardHeader>
+
+                {expanded && (
+                  <CardContent className="pt-0 pb-5 space-y-5">
+                    {/* Client items */}
+                    {renderItems(clientItems, `Pour ${activeClient?.name ?? "le client"}`)}
+
+                    {/* Datashake items */}
+                    {renderItems(datashakeItems, "Pour Datashake")}
+
+                    {/* No items fallback */}
+                    {todo.items.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        Aucune action pour cette semaine.
+                      </p>
+                    )}
+
+                    {/* Inline add item */}
+                    {!isReader && (
+                      <div className="pt-2 border-t">
+                        {addingToTodo === todo.id ? (
+                          <div className="flex items-center gap-2">
+                            <Input
+                              className="flex-1"
+                              placeholder="Nouvelle action..."
+                              value={addItemTitle}
+                              onChange={(e) => setAddItemTitle(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") addItem(todo.id);
+                                if (e.key === "Escape") {
+                                  setAddingToTodo(null);
+                                  setAddItemTitle("");
+                                }
+                              }}
+                              autoFocus
+                            />
+                            <select
+                              className="h-9 rounded-md border border-input bg-background px-2 text-xs"
+                              value={addItemAssignedTo}
+                              onChange={(e) =>
+                                setAddItemAssignedTo(e.target.value as "client" | "datashake")
+                              }
+                            >
+                              <option value="client">Client</option>
+                              <option value="datashake">Datashake</option>
+                            </select>
+                            <Button size="sm" onClick={() => addItem(todo.id)}>
+                              Ajouter
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setAddingToTodo(null);
+                                setAddItemTitle("");
+                              }}
+                            >
+                              Annuler
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1.5 text-xs text-muted-foreground"
+                            onClick={() => {
+                              setAddingToTodo(todo.id);
+                              setAddItemTitle("");
+                            }}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Ajouter une action
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

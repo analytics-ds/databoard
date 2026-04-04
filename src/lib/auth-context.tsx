@@ -55,18 +55,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setOrganization(data.organization);
         setClients(data.clients || []);
 
-        // Set active client
-        if (data.user.role === "admin" || data.user.role === "consultant") {
-          // For admin/consultant, default to first client or their own org
-          if (data.clients?.length > 0) {
-            setActiveClientState(data.clients[0]);
-          } else {
-            setActiveClientState(data.organization);
+        // Preserve current active client on refresh (if still in the list)
+        setActiveClientState((prev) => {
+          if (prev && data.clients?.length > 0) {
+            const stillExists = data.clients.find((c: any) => c.id === prev.id);
+            if (stillExists) return stillExists;
           }
-        } else {
-          // Client/reader always see their own org
-          setActiveClientState(data.organization);
-        }
+
+          // Set active client (first load)
+          if (data.user.role === "admin" || data.user.role === "consultant") {
+            if (data.clients?.length > 0) return data.clients[0];
+            return data.organization;
+          }
+          return data.organization;
+        });
       } else {
         setUser(null);
         setOrganization(null);

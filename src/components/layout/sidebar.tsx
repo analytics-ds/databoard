@@ -58,9 +58,13 @@ export function Sidebar() {
                 onClick={() => setClientDropdownOpen(!clientDropdownOpen)}
                 className="flex w-full items-center gap-2 rounded-md bg-sidebar-accent px-2.5 py-2 text-left hover:bg-sidebar-accent/80 transition-colors"
               >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary/20">
-                  <Building2 className="h-3.5 w-3.5 text-sidebar-primary" />
-                </div>
+                {activeClient?.logoUrl ? (
+                  <img src={activeClient.logoUrl} alt={activeClient.name} className="h-7 w-7 shrink-0 rounded-md object-contain bg-white p-0.5" />
+                ) : (
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary/20">
+                    <Building2 className="h-3.5 w-3.5 text-sidebar-primary" />
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-medium text-white">{activeClient?.name || "Sélectionner"}</p>
                   {activeClient?.domain && (
@@ -78,6 +82,13 @@ export function Sidebar() {
                       onClick={() => { setActiveClient(client); setClientDropdownOpen(false); }}
                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-sidebar-accent/50 first:rounded-t-lg last:rounded-b-lg"
                     >
+                      {client.logoUrl ? (
+                        <img src={client.logoUrl} alt={client.name} className="h-6 w-6 shrink-0 rounded object-contain bg-white p-0.5" />
+                      ) : (
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-sidebar-primary/20">
+                          <Building2 className="h-3 w-3 text-sidebar-primary" />
+                        </div>
+                      )}
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-white">{client.name}</p>
                         {client.domain && <p className="truncate text-[10px] text-sidebar-foreground/50">{client.domain}</p>}
@@ -92,9 +103,13 @@ export function Sidebar() {
             </div>
           ) : (
             <div className="flex items-center gap-2 rounded-md bg-sidebar-accent px-2.5 py-2">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary/20">
-                <Building2 className="h-3.5 w-3.5 text-sidebar-primary" />
-              </div>
+              {(activeClient?.logoUrl || organization?.logoUrl) ? (
+                <img src={(activeClient?.logoUrl || organization?.logoUrl)!} alt="" className="h-7 w-7 shrink-0 rounded-md object-contain bg-white p-0.5" />
+              ) : (
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary/20">
+                  <Building2 className="h-3.5 w-3.5 text-sidebar-primary" />
+                </div>
+              )}
               <div className="min-w-0">
                 <p className="truncate text-[13px] font-medium text-white">{activeClient?.name || organization?.name}</p>
                 {(activeClient?.domain || organization?.domain) && (

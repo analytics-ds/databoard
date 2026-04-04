@@ -11,6 +11,10 @@ import {
   Settings,
   FolderOpen,
   Globe,
+  ClipboardList,
+  Calendar,
+  FileArchive,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 
@@ -93,12 +97,15 @@ export const NAV_SECTIONS: NavSection[] = [
         ],
       },
       {
-        title: "Tâches",
+        title: "Suivi du projet",
         href: "/projects",
-        icon: ListChecks,
+        icon: ClipboardList,
         children: [
-          { title: "Kanban", href: "/projects" },
-          { title: "Documents", href: "/projects/docs" },
+          { title: "To-do hebdo", href: "/projects" },
+          { title: "Tâches", href: "/projects/kanban" },
+          { title: "Comptes rendus", href: "/projects/reports" },
+          { title: "Documents", href: "/projects/documents" },
+          { title: "Ressources", href: "/projects/resources" },
         ],
       },
     ],
