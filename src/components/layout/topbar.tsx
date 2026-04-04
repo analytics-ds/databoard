@@ -25,7 +25,8 @@ const PAGE_TITLES: Record<string, string> = {
 
 export function Topbar() {
   const pathname = usePathname();
-  const { organization } = useAuth();
+  const { activeClient, organization } = useAuth();
+  const displayOrg = activeClient || organization;
 
   const title = Object.entries(PAGE_TITLES).find(
     ([path]) => pathname === path || (path !== "/" && pathname.startsWith(path + "/"))
@@ -33,13 +34,22 @@ export function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-card/80 px-6 backdrop-blur-sm">
-      <div>
-        <h1 className="text-base font-semibold text-foreground">{title}</h1>
-        {organization && (
-          <p className="text-[11px] text-muted-foreground">
-            {organization.name}{organization.domain ? ` · ${organization.domain}` : ""}
-          </p>
+      <div className="flex items-center gap-3">
+        {displayOrg?.logoUrl && (
+          <img
+            src={displayOrg.logoUrl}
+            alt={displayOrg.name}
+            className="h-8 w-8 rounded-lg object-contain border border-border bg-white p-0.5"
+          />
         )}
+        <div>
+          <h1 className="text-base font-semibold text-foreground">{title}</h1>
+          {displayOrg && (
+            <p className="text-[11px] text-muted-foreground">
+              {displayOrg.name}{displayOrg.domain ? ` · ${displayOrg.domain}` : ""}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-4">

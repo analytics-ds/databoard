@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Key, UserPlus, Users, Shield, Building2, Loader2, Trash2, Crown, Star, Plus, X, Phone, Mail, User } from "lucide-react";
+import { Save, Key, UserPlus, Users, Shield, Building2, Loader2, Trash2, Crown, Star, Plus, X, Phone, Mail, User, Camera, ImageIcon } from "lucide-react";
 import { AdminPanel } from "@/components/admin/admin-panel";
 import { IntegrationsTab } from "@/components/settings/integrations-tab";
 import { Textarea } from "@/components/ui/textarea";
@@ -112,6 +112,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          <LogoCard orgId={activeClient?.id} currentLogoUrl={activeClient?.logoUrl || null} readOnly={isReader} />
           <ContactsCard orgId={activeClient?.id} readOnly={isReader} />
           <NotesCard orgId={activeClient?.id} readOnly={isReader} />
         </TabsContent>
@@ -373,6 +374,136 @@ interface Contact {
   role: string;
   email: string;
   phone: string;
+}
+
+function compressImage(file: File, maxSize: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let w = img.width, h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w > h) { h = (h / w) * maxSize; w = maxSize; }
+          else { w = (w / h) * maxSize; h = maxSize; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/png", 0.9));
+      };
+      img.onerror = reject;
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function LogoCard({ orgId, currentLogoUrl, readOnly }: { orgId?: string; currentLogoUrl: string | null; readOnly: boolean }) {
+  const { refresh } = useAuth();
+  const [logoUrl, setLogoUrl] = useState<string | null>(currentLogoUrl);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setLogoUrl(currentLogoUrl);
+  }, [currentLogoUrl]);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !orgId) return;
+    setUploading(true);
+    try {
+      const dataUrl = await compressImage(file, 256);
+      const res = await fetch("/api/org-logo", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId, logoUrl: dataUrl }),
+      });
+      if (res.ok) {
+        setLogoUrl(dataUrl);
+        await refresh();
+      }
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function handleRemove() {
+    if (!orgId) return;
+    setUploading(true);
+    try {
+      const res = await fetch("/api/org-logo", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orgId, logoUrl: null }),
+      });
+      if (res.ok) {
+        setLogoUrl(null);
+        await refresh();
+      }
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ImageIcon className="h-4 w-4" />Logo de l'entreprise
+        </CardTitle>
+        <CardDescription>Le logo sera affiché dans le tableau de bord et la barre supérieure</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-6">
+          <div className="relative flex h-20 w-20 items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/50 overflow-hidden">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Logo" className="h-full w-full object-contain p-1" />
+            ) : (
+              <ImageIcon className="h-8 w-8 text-muted-foreground/40" />
+            )}
+            {uploading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/70">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            )}
+          </div>
+          {!readOnly && (
+            <div className="space-y-2">
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="gap-1.5"
+              >
+                <Camera className="h-3.5 w-3.5" />
+                {logoUrl ? "Changer le logo" : "Ajouter un logo"}
+              </Button>
+              {logoUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRemove}
+                  disabled={uploading}
+                  className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 ml-2"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />Supprimer
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground">PNG, JPG ou SVG. Max 2 Mo.</p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function ContactsCard({ orgId, readOnly }: { orgId?: string; readOnly: boolean }) {

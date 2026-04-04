@@ -11,6 +11,7 @@ import { handleIntegrations } from "./api/integrations";
 import { handleProjectTeam } from "./api/project-team";
 import { handleTeamManage } from "./api/team-manage";
 import { handleOrgDetails } from "./api/org-details";
+import { handleOrgLogo } from "./api/org-logo";
 
 export interface Env {
   DB: D1Database;
@@ -89,6 +90,11 @@ export default {
     // Organization details (contacts, notes)
     if (path === "/api/org-details" && (request.method === "GET" || request.method === "PUT")) {
       return handleOrgDetails(request, env);
+    }
+
+    // Organization logo upload
+    if (path === "/api/org-logo" && request.method === "PUT") {
+      return handleOrgLogo(request, env);
     }
 
     // Seed test data (temporary, remove in production)

@@ -9,16 +9,25 @@ import { Search, KanbanSquare, FileText, TrendingUp, TrendingDown, Link2, Bell, 
 import Link from "next/link";
 
 export default function DashboardPage() {
-  const { organization } = useAuth();
+  const { activeClient, organization } = useAuth();
+  const displayOrg = activeClient || organization;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Vue d'ensemble pour {organization?.name || "votre compte"}
-          {organization?.domain ? ` (${organization.domain})` : ""}
-        </p>
+      <div className="flex items-center gap-4">
+        {displayOrg?.logoUrl && (
+          <img
+            src={displayOrg.logoUrl}
+            alt={displayOrg.name}
+            className="h-12 w-12 rounded-xl object-contain border border-border bg-white p-1"
+          />
+        )}
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">{displayOrg?.name || "Dashboard"}</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {displayOrg?.domain || "Vue d'ensemble de votre compte"}
+          </p>
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -26,25 +26,25 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
     return jsonResponse({ error: "User not found" }, 401);
   }
 
-  // Get user's own org
-  const org = await env.DB.prepare("SELECT id, name, domain FROM organizations WHERE id = ?")
-    .bind(dbUser.org_id).first();
+  // Get user's own org (include logo_url)
+  const org = await env.DB.prepare("SELECT id, name, domain, logo_url FROM organizations WHERE id = ?")
+    .bind(dbUser.org_id).first<{ id: string; name: string; domain: string | null; logo_url: string | null }>();
 
   // For admin/consultant, also get their accessible clients
   let clients: any[] = [];
 
   if (dbUser.role === "admin") {
-    const result = await env.DB.prepare("SELECT id, name, domain FROM organizations ORDER BY name").all();
-    clients = result.results || [];
+    const result = await env.DB.prepare("SELECT id, name, domain, logo_url FROM organizations ORDER BY name").all();
+    clients = (result.results || []).map((c: any) => ({ id: c.id, name: c.name, domain: c.domain, logoUrl: c.logo_url }));
   } else if (dbUser.role === "consultant") {
     const result = await env.DB.prepare(
-      `SELECT o.id, o.name, o.domain
+      `SELECT o.id, o.name, o.domain, o.logo_url
        FROM organizations o
        INNER JOIN consultant_clients cc ON cc.org_id = o.id
        WHERE cc.consultant_id = ?
        ORDER BY o.name`
     ).bind(dbUser.id).all();
-    clients = result.results || [];
+    clients = (result.results || []).map((c: any) => ({ id: c.id, name: c.name, domain: c.domain, logoUrl: c.logo_url }));
   }
 
   return jsonResponse({
@@ -55,7 +55,7 @@ export async function handleMe(request: Request, env: Env): Promise<Response> {
       role: dbUser.role,
       avatarUrl: dbUser.avatar_url,
     },
-    organization: org || null,
+    organization: org ? { id: org.id, name: org.name, domain: org.domain, logoUrl: org.logo_url } : null,
     clients,
   });
 }

@@ -15,6 +15,7 @@ interface Organization {
   id: string;
   name: string;
   domain: string | null;
+  logoUrl?: string | null;
 }
 
 interface AuthContextType {
