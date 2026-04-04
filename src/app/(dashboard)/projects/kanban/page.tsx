@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { TaskDetailPanel, type TaskDetail } from "@/components/projects/task-detail-panel";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -155,7 +156,11 @@ export default function KanbanPage() {
   const [newDueDate, setNewDueDate] = useState("");
   const [newStatus, setNewStatus] = useState<KanbanStatus>("brief_prep");
 
-  // Edit dialog
+  // Detail panel (Notion-like slide-over)
+  const [detailTask, setDetailTask] = useState<KanbanTask | null>(null);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; name: string; role: string }[]>([]);
+
+  // Legacy edit dialog state (kept for compatibility but replaced by panel)
   const [editOpen, setEditOpen] = useState(false);
   const [editTask, setEditTask] = useState<KanbanTask | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -186,7 +191,14 @@ export default function KanbanPage() {
 
   useEffect(() => {
     fetchTasks();
-  }, [fetchTasks]);
+    // Fetch team members for task assignment
+    if (orgId) {
+      fetch(`/api/project-team?org_id=${orgId}`)
+        .then((r) => r.json())
+        .then((data) => setTeamMembers(data.members || []))
+        .catch(() => {});
+    }
+  }, [fetchTasks, orgId]);
 
   // ── Filtered tasks ──────────────────────────────────────
   const filteredTasks =
@@ -608,7 +620,7 @@ export default function KanbanPage() {
                     <Card
                       key={task.id}
                       className="cursor-pointer transition-shadow hover:shadow-md"
-                      onClick={() => openEditDialog(task)}
+                      onClick={() => setDetailTask(task)}
                     >
                       <CardContent className="p-3.5">
                         {/* Color bar */}
@@ -851,6 +863,50 @@ export default function KanbanPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Notion-like task detail panel */}
+      {detailTask && orgId && (
+        <TaskDetailPanel
+          task={{
+            id: detailTask.id,
+            title: detailTask.title,
+            description: detailTask.description || "",
+            status: detailTask.status,
+            type: detailTask.type,
+            category: detailTask.category,
+            keyword: detailTask.keyword || "",
+            assigneeId: detailTask.assigneeId || null,
+            assigneeName: detailTask.assigneeName || null,
+            dueDate: detailTask.dueDate || null,
+            url: (detailTask as any).url || "",
+            progress: (detailTask as any).progress || 0,
+            estimatedDays: (detailTask as any).estimatedDays || null,
+            endDate: (detailTask as any).endDate || null,
+          }}
+          orgId={orgId}
+          members={teamMembers}
+          readOnly={isReader}
+          onClose={() => setDetailTask(null)}
+          onSave={async (updates) => {
+            await fetch("/api/project-tasks", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: detailTask.id, orgId, ...updates }),
+            });
+            setDetailTask(null);
+            fetchTasks();
+          }}
+          onDelete={async () => {
+            await fetch("/api/project-tasks", {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: detailTask.id, orgId }),
+            });
+            setDetailTask(null);
+            fetchTasks();
+          }}
+        />
+      )}
     </div>
   );
 }

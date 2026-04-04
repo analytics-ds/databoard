@@ -38,7 +38,8 @@ export async function handleProjectTasks(request: Request, env: Env): Promise<Re
 
     const result = await env.DB.prepare(
       `SELECT t.id, t.title, t.description, t.status, t.type, t.category, t.keyword,
-              t.assignee_id, t.due_date, t."order", t.created_at, t.updated_at,
+              t.assignee_id, t.due_date, t.url, t.progress, t.estimated_days, t.end_date,
+              t."order", t.created_at, t.updated_at,
               u.name as assignee_name
        FROM tasks t
        LEFT JOIN users u ON t.assignee_id = u.id
@@ -57,6 +58,10 @@ export async function handleProjectTasks(request: Request, env: Env): Promise<Re
       assigneeId: r.assignee_id,
       assigneeName: r.assignee_name,
       dueDate: r.due_date,
+      url: r.url || "",
+      progress: r.progress || 0,
+      estimatedDays: r.estimated_days,
+      endDate: r.end_date,
       order: r.order,
       createdAt: r.created_at,
     }));
@@ -85,7 +90,7 @@ export async function handleProjectTasks(request: Request, env: Env): Promise<Re
   if (request.method === "PUT") {
     if (dbUser.role === "reader") return jsonResponse({ error: "Accès refusé" }, 403);
     const body = await request.json() as any;
-    const { id, orgId, title, description, status, type, category, keyword, assigneeId, dueDate } = body;
+    const { id, orgId, title, description, status, type, category, keyword, assigneeId, dueDate, url, progress, estimatedDays, endDate } = body;
     if (!id || !orgId) return jsonResponse({ error: "id et orgId requis" }, 400);
     if (!(await hasAccess(orgId))) return jsonResponse({ error: "Accès refusé" }, 403);
 
@@ -101,6 +106,10 @@ export async function handleProjectTasks(request: Request, env: Env): Promise<Re
     if (keyword !== undefined) { updates.push("keyword = ?"); values.push(keyword); }
     if (assigneeId !== undefined) { updates.push("assignee_id = ?"); values.push(assigneeId || null); }
     if (dueDate !== undefined) { updates.push("due_date = ?"); values.push(dueDate || null); }
+    if (url !== undefined) { updates.push("url = ?"); values.push(url); }
+    if (progress !== undefined) { updates.push("progress = ?"); values.push(progress); }
+    if (estimatedDays !== undefined) { updates.push("estimated_days = ?"); values.push(estimatedDays || null); }
+    if (endDate !== undefined) { updates.push("end_date = ?"); values.push(endDate || null); }
 
     updates.push("updated_at = ?");
     values.push(now);
