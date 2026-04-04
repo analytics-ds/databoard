@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { FileUpload, type UploadedFile } from "@/components/shared/file-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -91,6 +92,8 @@ export default function WorkDocumentsPage() {
   const [category, setCategory] = useState<CategoryKey>("audit");
   const [url, setUrl] = useState("");
   const [description, setDescription] = useState("");
+  const [createFiles, setCreateFiles] = useState<UploadedFile[]>([]);
+  const [docFiles, setDocFiles] = useState<Record<string, UploadedFile[]>>({});
 
   // --------------------------------------------------
   // Fetch documents
@@ -176,6 +179,7 @@ export default function WorkDocumentsPage() {
     setCategory("audit");
     setUrl("");
     setDescription("");
+    setCreateFiles([]);
   };
 
   const groupedDocuments = CATEGORY_ORDER.map((key) => ({
@@ -241,6 +245,30 @@ export default function WorkDocumentsPage() {
                     placeholder="https://..."
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground text-xs">Ou uploadez un fichier</Label>
+                  <FileUpload
+                    orgId={activeClient?.id || ""}
+                    files={createFiles}
+                    onUpload={(file) => {
+                      setCreateFiles((prev) => [...prev, file]);
+                      if (!url.trim()) {
+                        setUrl(`/api/files/${file.id}`);
+                      }
+                    }}
+                    onRemove={(fileId) => {
+                      setCreateFiles((prev) => prev.filter((f) => f.id !== fileId));
+                      const remaining = createFiles.filter((f) => f.id !== fileId);
+                      if (remaining.length > 0 && url === `/api/files/${fileId}`) {
+                        setUrl(`/api/files/${remaining[0].id}`);
+                      } else if (remaining.length === 0 && url.startsWith("/api/files/")) {
+                        setUrl("");
+                      }
+                    }}
+                    accept=".pdf,.pptx,.ppt,.doc,.docx,.xls,.xlsx"
                   />
                 </div>
 
@@ -331,6 +359,26 @@ export default function WorkDocumentsPage() {
                           year: "numeric",
                         })}
                       </p>
+                      <div className="mt-2">
+                        <FileUpload
+                          orgId={activeClient?.id || ""}
+                          files={docFiles[doc.id] ?? []}
+                          onUpload={(file) =>
+                            setDocFiles((prev) => ({
+                              ...prev,
+                              [doc.id]: [...(prev[doc.id] ?? []), file],
+                            }))
+                          }
+                          onRemove={(fileId) =>
+                            setDocFiles((prev) => ({
+                              ...prev,
+                              [doc.id]: (prev[doc.id] ?? []).filter((f) => f.id !== fileId),
+                            }))
+                          }
+                          readOnly={isReader}
+                          accept=".pdf,.pptx,.ppt,.doc,.docx,.xls,.xlsx"
+                        />
+                      </div>
                     </div>
                     <div className="flex shrink-0 gap-1">
                       <a href={doc.url} target="_blank" rel="noopener noreferrer">

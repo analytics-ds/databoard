@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { FileUpload, type UploadedFile } from "@/components/shared/file-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { RichEditor } from "@/components/shared/rich-editor";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,8 @@ export default function MeetingReportsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNotes, setEditNotes] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [reportFiles, setReportFiles] = useState<Record<string, UploadedFile[]>>({});
+  const [createFiles, setCreateFiles] = useState<UploadedFile[]>([]);
 
   // Create form state
   const [formDate, setFormDate] = useState("");
@@ -97,6 +100,7 @@ export default function MeetingReportsPage() {
     setFormDuration("");
     setFormReportUrl("");
     setFormNotes("");
+    setCreateFiles([]);
   }
 
   async function handleCreate() {
@@ -239,6 +243,16 @@ export default function MeetingReportsPage() {
                     content={formNotes}
                     onChange={setFormNotes}
                     placeholder="Compte rendu de la réunion..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Pièces jointes</Label>
+                  <FileUpload
+                    orgId={activeClient?.id || ""}
+                    files={createFiles}
+                    onUpload={(file) => setCreateFiles((prev) => [...prev, file])}
+                    onRemove={(fileId) => setCreateFiles((prev) => prev.filter((f) => f.id !== fileId))}
+                    accept=".pdf,.pptx,.ppt,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
                   />
                 </div>
               </div>
@@ -409,6 +423,29 @@ export default function MeetingReportsPage() {
                         )}
                       </>
                     )}
+
+                    {/* Pièces jointes */}
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium text-muted-foreground">Pièces jointes</Label>
+                      <FileUpload
+                        orgId={activeClient?.id || ""}
+                        files={reportFiles[report.id] ?? []}
+                        onUpload={(file) =>
+                          setReportFiles((prev) => ({
+                            ...prev,
+                            [report.id]: [...(prev[report.id] ?? []), file],
+                          }))
+                        }
+                        onRemove={(fileId) =>
+                          setReportFiles((prev) => ({
+                            ...prev,
+                            [report.id]: (prev[report.id] ?? []).filter((f) => f.id !== fileId),
+                          }))
+                        }
+                        readOnly={isReader}
+                        accept=".pdf,.pptx,.ppt,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                      />
+                    </div>
 
                     {!isReader && !isEditing && (
                       <div className="flex items-center gap-2 pt-1">

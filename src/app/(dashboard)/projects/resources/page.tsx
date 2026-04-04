@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { FileUpload, type UploadedFile } from "@/components/shared/file-upload";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import {
@@ -91,6 +92,10 @@ export default function ResourcesPage() {
   const [newContent, setNewContent] = useState("");
   const [newUrl, setNewUrl] = useState("");
 
+  // File attachments
+  const [resourceFiles, setResourceFiles] = useState<Record<string, UploadedFile[]>>({});
+  const [createFiles, setCreateFiles] = useState<UploadedFile[]>([]);
+
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -156,6 +161,7 @@ export default function ResourcesPage() {
     setNewCategory("");
     setNewContent("");
     setNewUrl("");
+    setCreateFiles([]);
   };
 
   // -----------------------------------------------------------------------
@@ -277,6 +283,17 @@ export default function ResourcesPage() {
                     placeholder="https://..."
                     value={newUrl}
                     onChange={(e) => setNewUrl(e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Pièces jointes</Label>
+                  <FileUpload
+                    orgId={activeClient?.id || ""}
+                    files={createFiles}
+                    onUpload={(file) => setCreateFiles((prev) => [...prev, file])}
+                    onRemove={(fileId) => setCreateFiles((prev) => prev.filter((f) => f.id !== fileId))}
+                    accept=".pdf,.pptx,.ppt,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
                   />
                 </div>
               </div>
@@ -432,6 +449,31 @@ export default function ResourcesPage() {
                           <ExternalLink className="h-3 w-3" />
                           Voir le lien externe
                         </a>
+                      )}
+
+                      {/* Pièces jointes */}
+                      {isExpanded && (
+                        <div className="space-y-1">
+                          <span className="text-[11px] font-medium text-muted-foreground">Pièces jointes</span>
+                          <FileUpload
+                            orgId={activeClient?.id || ""}
+                            files={resourceFiles[resource.id] ?? []}
+                            onUpload={(file) =>
+                              setResourceFiles((prev) => ({
+                                ...prev,
+                                [resource.id]: [...(prev[resource.id] ?? []), file],
+                              }))
+                            }
+                            onRemove={(fileId) =>
+                              setResourceFiles((prev) => ({
+                                ...prev,
+                                [resource.id]: (prev[resource.id] ?? []).filter((f) => f.id !== fileId),
+                              }))
+                            }
+                            readOnly={isReader}
+                            accept=".pdf,.pptx,.ppt,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                          />
+                        </div>
                       )}
 
                       {/* Delete */}
