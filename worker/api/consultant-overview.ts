@@ -60,7 +60,7 @@ export async function handleConsultantOverview(request: Request, env: Env): Prom
        GROUP BY org_id
      ) latest ON wt.org_id = latest.org_id AND wt.week_date = latest.max_week
      ORDER BY wt.week_date DESC`
-  ).bind(...orgIds, ...orgIds).all();
+  ).bind(...orgIds).all();
 
   const todos = [];
   for (const t of (todosResult.results || [])) {
