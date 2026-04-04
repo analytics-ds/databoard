@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
+import { RichEditor } from "@/components/shared/rich-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +39,8 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Eye,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +64,7 @@ export default function MeetingReportsPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editNotes, setEditNotes] = useState("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Create form state
   const [formDate, setFormDate] = useState("");
@@ -178,12 +181,15 @@ export default function MeetingReportsPage() {
         description="Points mensuels avec le client"
       >
         {!isReader && (
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <Dialog open={createOpen} onOpenChange={(open) => {
+            setCreateOpen(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger render={<Button size="sm" className="gap-2" />}>
               <Plus className="h-4 w-4" />
               Nouveau compte rendu
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Nouveau compte rendu</DialogTitle>
               </DialogHeader>
@@ -221,20 +227,18 @@ export default function MeetingReportsPage() {
                     <Input
                       id="cr-url"
                       type="url"
-                      placeholder="https://..."
+                      placeholder="https://docs.google.com/..."
                       value={formReportUrl}
                       onChange={(e) => setFormReportUrl(e.target.value)}
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cr-notes">Notes</Label>
-                  <Textarea
-                    id="cr-notes"
+                  <Label>Notes</Label>
+                  <RichEditor
+                    content={formNotes}
+                    onChange={setFormNotes}
                     placeholder="Compte rendu de la réunion..."
-                    rows={5}
-                    value={formNotes}
-                    onChange={(e) => setFormNotes(e.target.value)}
                   />
                 </div>
               </div>
@@ -306,17 +310,30 @@ export default function MeetingReportsPage() {
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {report.reportUrl && (
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(report.reportUrl!, "_blank");
-                          }}
-                          title="Ouvrir le document"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewUrl(report.reportUrl!);
+                            }}
+                            title="Prévisualiser le document"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(report.reportUrl!, "_blank");
+                            }}
+                            title="Ouvrir le document"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </>
                       )}
                       {isExpanded ? (
                         <ChevronUp className="h-4 w-4 text-muted-foreground" />
@@ -329,14 +346,35 @@ export default function MeetingReportsPage() {
 
                 {isExpanded && (
                   <CardContent className="pt-0 space-y-3">
+                    {report.reportUrl && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <a
+                          href={report.reportUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline truncate"
+                        >
+                          {report.reportUrl}
+                        </a>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="shrink-0 gap-1.5 text-xs"
+                          onClick={() => setPreviewUrl(report.reportUrl!)}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Prévisualiser
+                        </Button>
+                      </div>
+                    )}
+
                     {isEditing ? (
                       <div className="space-y-3">
-                        <Textarea
-                          value={editNotes}
-                          onChange={(e) => setEditNotes(e.target.value)}
-                          rows={6}
+                        <RichEditor
+                          content={editNotes}
+                          onChange={setEditNotes}
                           placeholder="Notes du compte rendu..."
-                          className="text-sm"
                         />
                         <div className="flex items-center gap-2 justify-end">
                           <Button
@@ -360,9 +398,10 @@ export default function MeetingReportsPage() {
                     ) : (
                       <>
                         {report.notes ? (
-                          <div className="rounded-lg bg-muted/50 p-3 text-sm whitespace-pre-wrap leading-relaxed">
-                            {report.notes}
-                          </div>
+                          <div
+                            className="prose prose-sm max-w-none rounded-lg bg-muted/50 p-3 leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: report.notes }}
+                          />
                         ) : (
                           <p className="text-sm text-muted-foreground italic">
                             Aucune note pour ce compte rendu.
@@ -430,6 +469,40 @@ export default function MeetingReportsPage() {
           })}
         </div>
       )}
+
+      {/* Iframe preview dialog */}
+      <Dialog open={!!previewUrl} onOpenChange={(open) => { if (!open) setPreviewUrl(null); }}>
+        <DialogContent className="sm:max-w-4xl h-[80vh] flex flex-col">
+          <DialogHeader>
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle className="truncate">Prévisualisation du document</DialogTitle>
+              <div className="flex items-center gap-2 shrink-0">
+                {previewUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => window.open(previewUrl, "_blank")}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Ouvrir
+                  </Button>
+                )}
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 rounded-lg border overflow-hidden bg-white">
+            {previewUrl && (
+              <iframe
+                src={previewUrl}
+                className="h-full w-full"
+                title="Prévisualisation du document"
+                sandbox="allow-scripts allow-same-origin allow-popups"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

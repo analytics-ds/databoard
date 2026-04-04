@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -24,18 +25,33 @@ import {
   Loader2,
   CheckCircle2,
   Circle,
+  Link2,
+  ExternalLink,
+  X,
+  Save,
+  Paperclip,
 } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
+interface Attachment {
+  type: "link" | "file";
+  url: string;
+  name: string;
+}
+
 interface TodoItem {
   id: string;
   title: string;
   done: boolean;
   assignedTo: "client" | "datashake";
+  linkedTaskId: string | null;
+  description: string;
+  attachments: Attachment[];
   order: number;
 }
 
@@ -44,6 +60,15 @@ interface WeeklyTodo {
   weekDate: string; // ISO date string (Monday of the week)
   createdBy: string;
   items: TodoItem[];
+}
+
+interface LinkedTask {
+  id: string;
+  title: string;
+  status: string;
+  type: string;
+  category: string;
+  dueDate: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -60,7 +85,7 @@ function formatWeekDate(isoDate: string): string {
 
 function getNextMonday(): string {
   const now = new Date();
-  const day = now.getDay(); // 0=Sun … 6=Sat
+  const day = now.getDay(); // 0=Sun ... 6=Sat
   const diff = day === 0 ? 1 : 8 - day;
   const next = new Date(now);
   next.setDate(now.getDate() + diff);
@@ -79,21 +104,30 @@ export default function ProjectsPage() {
   const { activeClient, isReader } = useAuth();
 
   const [todos, setTodos] = useState<WeeklyTodo[]>([]);
+  const [linkedTasks, setLinkedTasks] = useState<LinkedTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  // --- Expanded item detail (per item) ---
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [editDescription, setEditDescription] = useState("");
+  const [editAttachments, setEditAttachments] = useState<Attachment[]>([]);
+  const [savingItem, setSavingItem] = useState(false);
 
   // --- Create dialog state ---
   const [createOpen, setCreateOpen] = useState(false);
   const [newWeekDate, setNewWeekDate] = useState(getNextMonday);
-  const [newItems, setNewItems] = useState<{ title: string; assignedTo: "client" | "datashake" }[]>([
-    { title: "", assignedTo: "client" },
-  ]);
+  const [newItems, setNewItems] = useState<
+    { title: string; assignedTo: "client" | "datashake" }[]
+  >([{ title: "", assignedTo: "client" }]);
   const [creating, setCreating] = useState(false);
 
   // --- Add item inline state ---
   const [addingToTodo, setAddingToTodo] = useState<string | null>(null);
   const [addItemTitle, setAddItemTitle] = useState("");
-  const [addItemAssignedTo, setAddItemAssignedTo] = useState<"client" | "datashake">("client");
+  const [addItemAssignedTo, setAddItemAssignedTo] = useState<
+    "client" | "datashake"
+  >("client");
 
   // --- Fetch ---
   const fetchTodos = useCallback(async () => {
@@ -106,6 +140,7 @@ export default function ProjectsPage() {
       // Sort most recent first
       fetched.sort((a, b) => (b.weekDate > a.weekDate ? 1 : -1));
       setTodos(fetched);
+      setLinkedTasks(data.linkedTasks ?? []);
       // Expand the most recent one by default
       if (fetched.length > 0) {
         setExpandedIds(new Set([fetched[0].id]));
@@ -129,7 +164,9 @@ export default function ProjectsPage() {
     setTodos((prev) =>
       prev.map((t) => ({
         ...t,
-        items: t.items.map((i) => (i.id === item.id ? { ...i, done: !i.done } : i)),
+        items: t.items.map((i) =>
+          i.id === item.id ? { ...i, done: !i.done } : i
+        ),
       }))
     );
     try {
@@ -162,9 +199,12 @@ export default function ProjectsPage() {
           todoId,
           title: addItemTitle.trim(),
           assignedTo: addItemAssignedTo,
+          description: "",
+          attachments: [],
         }),
       });
       setAddItemTitle("");
+      setAddItemAssignedTo("client");
       setAddingToTodo(null);
       fetchTodos();
     } catch {
@@ -172,9 +212,37 @@ export default function ProjectsPage() {
     }
   }
 
+  // --- Update item details ---
+  async function updateItemDetails(item: TodoItem) {
+    if (!activeClient) return;
+    setSavingItem(true);
+    try {
+      await fetch("/api/weekly-todos", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_item",
+          orgId: activeClient.id,
+          itemId: item.id,
+          title: item.title,
+          description: editDescription,
+          attachments: editAttachments,
+        }),
+      });
+      fetchTodos();
+    } catch {
+      // ignore
+    } finally {
+      setSavingItem(false);
+    }
+  }
+
   // --- Remove item ---
   async function removeItem(itemId: string) {
     if (!activeClient) return;
+    if (expandedItemId === itemId) {
+      setExpandedItemId(null);
+    }
     setTodos((prev) =>
       prev.map((t) => ({
         ...t,
@@ -224,7 +292,10 @@ export default function ProjectsPage() {
         body: JSON.stringify({
           orgId: activeClient.id,
           weekDate: newWeekDate,
-          items: validItems.map((i) => ({ title: i.title.trim(), assignedTo: i.assignedTo })),
+          items: validItems.map((i) => ({
+            title: i.title.trim(),
+            assignedTo: i.assignedTo,
+          })),
         }),
       });
       setCreateOpen(false);
@@ -238,7 +309,7 @@ export default function ProjectsPage() {
     }
   }
 
-  // --- Expand / collapse ---
+  // --- Expand / collapse week ---
   function toggleExpand(id: string) {
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -248,7 +319,160 @@ export default function ProjectsPage() {
     });
   }
 
-  // --- Render helpers ---
+  // --- Expand / collapse item detail ---
+  function toggleItemDetail(item: TodoItem) {
+    if (expandedItemId === item.id) {
+      setExpandedItemId(null);
+    } else {
+      setExpandedItemId(item.id);
+      setEditDescription(item.description ?? "");
+      setEditAttachments(item.attachments ?? []);
+    }
+  }
+
+  // --- Add link attachment ---
+  function addLinkAttachment() {
+    const url = prompt("URL du lien :");
+    if (!url) return;
+    const name = prompt("Nom du lien :") || url;
+    setEditAttachments((prev) => [...prev, { type: "link", url, name }]);
+  }
+
+  // --- Remove attachment ---
+  function removeAttachment(index: number) {
+    setEditAttachments((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // --- Update a single newItem's assignedTo ---
+  function updateNewItemAssignedTo(
+    index: number,
+    value: "client" | "datashake"
+  ) {
+    setNewItems((prev) =>
+      prev.map((item, i) =>
+        i === index ? { ...item, assignedTo: value } : item
+      )
+    );
+  }
+
+  // --- Update a single newItem's title ---
+  function updateNewItemTitle(index: number, value: string) {
+    setNewItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, title: value } : item))
+    );
+  }
+
+  // --- Remove a newItem ---
+  function removeNewItem(index: number) {
+    setNewItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // --- Render item detail panel ---
+  function renderItemDetail(item: TodoItem) {
+    if (expandedItemId !== item.id) return null;
+
+    return (
+      <div className="ml-8 mt-2 space-y-3 rounded-lg border bg-muted/30 p-3">
+        {/* Description */}
+        {!isReader ? (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Description</Label>
+            <Textarea
+              className="min-h-20 text-sm"
+              placeholder="Ajouter une description..."
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+            />
+          </div>
+        ) : (
+          editDescription && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">
+                Description
+              </p>
+              <p className="whitespace-pre-wrap text-sm">{editDescription}</p>
+            </div>
+          )
+        )}
+
+        {/* Attachments */}
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-muted-foreground">
+            Pièces jointes
+          </p>
+          {editAttachments.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {editAttachments.map((att, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 rounded-full border bg-background px-2.5 py-1 text-xs"
+                >
+                  {att.type === "link" ? (
+                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                  ) : (
+                    <Paperclip className="h-3 w-3 text-muted-foreground" />
+                  )}
+                  <a
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    {att.name}
+                  </a>
+                  {!isReader && (
+                    <button
+                      onClick={() => removeAttachment(idx)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground/60">
+              Aucune pièce jointe.
+            </p>
+          )}
+
+          {!isReader && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1 gap-1.5 text-xs"
+              onClick={addLinkAttachment}
+            >
+              <Link2 className="h-3 w-3" />
+              Ajouter un lien
+            </Button>
+          )}
+        </div>
+
+        {/* Save button */}
+        {!isReader && (
+          <div className="flex justify-end pt-1">
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => updateItemDetails(item)}
+              disabled={savingItem}
+            >
+              {savingItem ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Save className="h-3.5 w-3.5" />
+              )}
+              Enregistrer
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // --- Render items ---
   function renderItems(items: TodoItem[], label: string) {
     if (items.length === 0) return null;
     return (
@@ -256,39 +480,74 @@ export default function ProjectsPage() {
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           {label}
         </p>
-        <ul className="space-y-1.5">
+        <ul className="space-y-1">
           {items
             .sort((a, b) => a.order - b.order)
             .map((item) => (
-              <li key={item.id} className="group flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
-                <button
-                  onClick={() => toggleItem(item)}
-                  className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
-                  aria-label={item.done ? "Marquer comme non terminé" : "Marquer comme terminé"}
-                >
-                  {item.done ? (
-                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                  ) : (
-                    <Circle className="h-5 w-5" />
-                  )}
-                </button>
-                <span
-                  className={cn(
-                    "flex-1 text-sm",
-                    item.done && "line-through text-muted-foreground"
-                  )}
-                >
-                  {item.title}
-                </span>
-                {!isReader && (
+              <li key={item.id}>
+                <div className="group flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
+                  {/* Checkbox */}
                   <button
-                    onClick={() => removeItem(item.id)}
-                    className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
-                    aria-label="Supprimer"
+                    onClick={() => toggleItem(item)}
+                    className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                    aria-label={
+                      item.done
+                        ? "Marquer comme non terminé"
+                        : "Marquer comme terminé"
+                    }
                   >
-                    <Trash2 className="h-4 w-4" />
+                    {item.done ? (
+                      <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                    ) : (
+                      <Circle className="h-5 w-5" />
+                    )}
                   </button>
-                )}
+
+                  {/* Title — clickable to expand detail */}
+                  <button
+                    onClick={() => toggleItemDetail(item)}
+                    className={cn(
+                      "flex-1 text-left text-sm hover:text-primary transition-colors",
+                      item.done && "line-through text-muted-foreground",
+                      expandedItemId === item.id && "font-medium text-primary"
+                    )}
+                  >
+                    {item.title}
+                  </button>
+
+                  {/* Linked task icon */}
+                  {item.linkedTaskId && (
+                    <Link
+                      href="/projects/kanban"
+                      className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                      title="Voir la tâche liée"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Link2 className="h-4 w-4" />
+                    </Link>
+                  )}
+
+                  {/* Attachment indicator */}
+                  {(item.attachments?.length ?? 0) > 0 && (
+                    <span className="shrink-0 text-muted-foreground" title="Pièces jointes">
+                      <Paperclip className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+
+                  {/* Delete */}
+                  {!isReader && (
+                    <button
+                      onClick={() => removeItem(item.id)}
+                      className="shrink-0 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all"
+                      aria-label="Supprimer"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Expanded detail panel */}
+                {renderItemDetail(item)}
               </li>
             ))}
         </ul>
@@ -302,7 +561,10 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="To-do hebdo" description={activeClient ? `${activeClient.name}` : undefined}>
+      <PageHeader
+        title="To-do hebdo"
+        description={activeClient ? `${activeClient.name}` : undefined}
+      >
         {!isReader && (
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger render={<Button size="sm" className="gap-1.5" />}>
@@ -336,19 +598,19 @@ export default function ProjectsPage() {
                           className="flex-1"
                           placeholder="Titre de l'action"
                           value={item.title}
-                          onChange={(e) => {
-                            const copy = [...newItems];
-                            copy[idx] = { ...copy[idx], title: e.target.value };
-                            setNewItems(copy);
-                          }}
+                          onChange={(e) =>
+                            updateNewItemTitle(idx, e.target.value)
+                          }
                         />
                         <select
+                          key={`assignee-${idx}`}
                           className="h-9 rounded-md border border-input bg-background px-2 text-xs"
                           value={item.assignedTo}
                           onChange={(e) => {
-                            const copy = [...newItems];
-                            copy[idx] = { ...copy[idx], assignedTo: e.target.value as "client" | "datashake" };
-                            setNewItems(copy);
+                            const val = e.target.value as
+                              | "client"
+                              | "datashake";
+                            updateNewItemAssignedTo(idx, val);
                           }}
                         >
                           <option value="client">Client</option>
@@ -356,7 +618,7 @@ export default function ProjectsPage() {
                         </select>
                         {newItems.length > 1 && (
                           <button
-                            onClick={() => setNewItems(newItems.filter((_, i) => i !== idx))}
+                            onClick={() => removeNewItem(idx)}
                             className="text-muted-foreground hover:text-destructive"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -370,7 +632,10 @@ export default function ProjectsPage() {
                     size="sm"
                     className="gap-1.5 text-xs"
                     onClick={() =>
-                      setNewItems([...newItems, { title: "", assignedTo: "client" }])
+                      setNewItems((prev) => [
+                        ...prev,
+                        { title: "", assignedTo: "client" },
+                      ])
                     }
                   >
                     <Plus className="h-3 w-3" />
@@ -381,7 +646,9 @@ export default function ProjectsPage() {
 
               <DialogFooter>
                 <Button onClick={createTodo} disabled={creating}>
-                  {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {creating && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
                   Créer
                 </Button>
               </DialogFooter>
@@ -407,7 +674,8 @@ export default function ProjectsPage() {
             </p>
             {!isReader && (
               <p className="text-xs text-muted-foreground mt-1">
-                Cliquez sur &laquo;&nbsp;Nouvelle to-do&nbsp;&raquo; pour commencer.
+                Cliquez sur &laquo;&nbsp;Nouvelle to-do&nbsp;&raquo; pour
+                commencer.
               </p>
             )}
           </CardContent>
@@ -422,8 +690,12 @@ export default function ProjectsPage() {
             const done = doneCount(todo.items);
             const total = todo.items.length;
             const allDone = total > 0 && done === total;
-            const clientItems = todo.items.filter((i) => i.assignedTo === "client");
-            const datashakeItems = todo.items.filter((i) => i.assignedTo === "datashake");
+            const clientItems = todo.items.filter(
+              (i) => i.assignedTo === "client"
+            );
+            const datashakeItems = todo.items.filter(
+              (i) => i.assignedTo === "datashake"
+            );
 
             return (
               <Card key={todo.id} className="overflow-hidden">
@@ -448,7 +720,8 @@ export default function ProjectsPage() {
                         variant={allDone ? "default" : "secondary"}
                         className={cn(
                           "text-xs",
-                          allDone && "bg-emerald-500 hover:bg-emerald-600 text-white"
+                          allDone &&
+                            "bg-emerald-500 hover:bg-emerald-600 text-white"
                         )}
                       >
                         {done}/{total} terminée{total > 1 ? "s" : ""}
@@ -457,7 +730,11 @@ export default function ProjectsPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm("Supprimer cette to-do hebdomadaire ?")) {
+                            if (
+                              confirm(
+                                "Supprimer cette to-do hebdomadaire ?"
+                              )
+                            ) {
                               deleteTodo(todo.id);
                             }
                           }}
@@ -478,7 +755,10 @@ export default function ProjectsPage() {
                           "h-1.5 rounded-full transition-all duration-300",
                           allDone ? "bg-emerald-500" : "bg-primary"
                         )}
-                        style={{ width: total > 0 ? `${(done / total) * 100}%` : "0%" }}
+                        style={{
+                          width:
+                            total > 0 ? `${(done / total) * 100}%` : "0%",
+                        }}
                       />
                     </div>
                   </div>
@@ -487,13 +767,72 @@ export default function ProjectsPage() {
                 {expanded && (
                   <CardContent className="pt-0 pb-5 space-y-5">
                     {/* Client items */}
-                    {renderItems(clientItems, `Pour ${activeClient?.name ?? "le client"}`)}
+                    {renderItems(
+                      clientItems,
+                      `Pour ${activeClient?.name ?? "le client"}`
+                    )}
 
                     {/* Datashake items */}
                     {renderItems(datashakeItems, "Pour Datashake")}
 
+                    {/* Linked tasks for this week */}
+                    {(() => {
+                      const weekStart = new Date(todo.weekDate);
+                      const weekEnd = new Date(weekStart);
+                      weekEnd.setDate(weekEnd.getDate() + 6);
+                      const weekTasks = linkedTasks.filter((t) => {
+                        const d = new Date(t.dueDate);
+                        return d >= weekStart && d <= weekEnd;
+                      });
+                      if (weekTasks.length === 0) return null;
+                      return (
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Tâches de la semaine
+                          </p>
+                          <ul className="space-y-1.5">
+                            {weekTasks.map((task) => (
+                              <li key={task.id}>
+                                <Link
+                                  href="/projects/kanban"
+                                  className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50 group"
+                                >
+                                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                                    {task.category}
+                                  </Badge>
+                                  <span className="flex-1 text-sm group-hover:text-primary transition-colors">
+                                    {task.title}
+                                  </span>
+                                  <Badge
+                                    variant="secondary"
+                                    className={cn("text-[10px]",
+                                      task.status === "done" ? "bg-emerald-100 text-emerald-700" :
+                                      task.status === "review" ? "bg-green-100 text-green-700" :
+                                      task.status === "brief_done" ? "bg-yellow-100 text-yellow-700" :
+                                      "bg-gray-100 text-gray-700"
+                                    )}
+                                  >
+                                    {task.status === "done" ? "Terminé" :
+                                     task.status === "review" ? "À relire" :
+                                     task.status === "brief_done" ? "Brief rédigé" :
+                                     "En prépa"}
+                                  </Badge>
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })()}
+
                     {/* No items fallback */}
-                    {todo.items.length === 0 && (
+                    {todo.items.length === 0 && linkedTasks.filter((t) => {
+                      const weekStart = new Date(todo.weekDate);
+                      const weekEnd = new Date(weekStart);
+                      weekEnd.setDate(weekEnd.getDate() + 6);
+                      const d = new Date(t.dueDate);
+                      return d >= weekStart && d <= weekEnd;
+                    }).length === 0 && (
                       <p className="text-sm text-muted-foreground text-center py-4">
                         Aucune action pour cette semaine.
                       </p>
@@ -514,6 +853,7 @@ export default function ProjectsPage() {
                                 if (e.key === "Escape") {
                                   setAddingToTodo(null);
                                   setAddItemTitle("");
+                                  setAddItemAssignedTo("client");
                                 }
                               }}
                               autoFocus
@@ -521,14 +861,20 @@ export default function ProjectsPage() {
                             <select
                               className="h-9 rounded-md border border-input bg-background px-2 text-xs"
                               value={addItemAssignedTo}
-                              onChange={(e) =>
-                                setAddItemAssignedTo(e.target.value as "client" | "datashake")
-                              }
+                              onChange={(e) => {
+                                const val = e.target.value as
+                                  | "client"
+                                  | "datashake";
+                                setAddItemAssignedTo(val);
+                              }}
                             >
                               <option value="client">Client</option>
                               <option value="datashake">Datashake</option>
                             </select>
-                            <Button size="sm" onClick={() => addItem(todo.id)}>
+                            <Button
+                              size="sm"
+                              onClick={() => addItem(todo.id)}
+                            >
                               Ajouter
                             </Button>
                             <Button
@@ -537,6 +883,7 @@ export default function ProjectsPage() {
                               onClick={() => {
                                 setAddingToTodo(null);
                                 setAddItemTitle("");
+                                setAddItemAssignedTo("client");
                               }}
                             >
                               Annuler
@@ -550,6 +897,7 @@ export default function ProjectsPage() {
                             onClick={() => {
                               setAddingToTodo(todo.id);
                               setAddItemTitle("");
+                              setAddItemAssignedTo("client");
                             }}
                           >
                             <Plus className="h-3.5 w-3.5" />

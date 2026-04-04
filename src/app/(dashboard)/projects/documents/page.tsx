@@ -42,7 +42,7 @@ import { cn } from "@/lib/utils";
 
 const CATEGORY_CONFIG = {
   audit: { label: "Audit technique", icon: Search, color: "bg-orange-100 text-orange-600" },
-  roadmap_editorial: { label: "Roadmap \u00e9ditoriale", icon: FileText, color: "bg-blue-100 text-blue-600" },
+  roadmap_editorial: { label: "Roadmap éditoriale", icon: FileText, color: "bg-blue-100 text-blue-600" },
   roadmap_geo: { label: "Roadmap GEO", icon: Globe, color: "bg-green-100 text-green-600" },
   mindmap: { label: "Mindmap", icon: Network, color: "bg-purple-100 text-purple-600" },
   prompts: { label: "Prompts", icon: MessageSquare, color: "bg-pink-100 text-pink-600" },
@@ -218,7 +218,7 @@ export default function WorkDocumentsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Cat\u00e9gorie</Label>
+                  <Label>Catégorie</Label>
                   <Select value={category} onValueChange={(v) => setCategory(v as CategoryKey)}>
                     <SelectTrigger>
                       <SelectValue />

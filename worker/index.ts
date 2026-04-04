@@ -16,9 +16,12 @@ import { handleWeeklyTodos } from "./api/weekly-todos";
 import { handleMeetingReports } from "./api/meeting-reports";
 import { handleWorkDocuments } from "./api/work-documents";
 import { handleResources } from "./api/resources";
+import { handleFiles } from "./api/files";
+import { handleProjectTasks } from "./api/project-tasks";
 
 export interface Env {
   DB: D1Database;
+  FILES?: R2Bucket;
   JWT_SECRET: string;
   TURNSTILE_SECRET_KEY?: string;
   HALOSCAN_API_KEY?: string;
@@ -119,6 +122,16 @@ export default {
     // Resources / guides
     if (path === "/api/resources") {
       return handleResources(request, env);
+    }
+
+    // Project tasks (kanban)
+    if (path === "/api/project-tasks") {
+      return handleProjectTasks(request, env);
+    }
+
+    // File uploads (R2)
+    if (path.startsWith("/api/files")) {
+      return handleFiles(request, env);
     }
 
     // Seed test data (temporary, remove in production)

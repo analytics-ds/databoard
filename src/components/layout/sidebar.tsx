@@ -121,8 +121,8 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Navigation — no scroll, everything visible */}
-      <nav className="flex-1 flex flex-col justify-between px-2.5 py-2">
+      {/* Navigation — scrollable when content overflows */}
+      <nav className="flex-1 flex flex-col justify-between px-2.5 py-2 overflow-y-auto min-h-0">
         <div>
           {NAV_SECTIONS.map((section, sIdx) => (
             <div key={sIdx} className={cn(sIdx > 0 && "mt-3")}>

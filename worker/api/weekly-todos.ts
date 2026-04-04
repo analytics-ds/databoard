@@ -44,29 +44,49 @@ export async function handleWeeklyTodos(request: Request, env: Env): Promise<Res
     for (const todo of (todos.results || [])) {
       const t = todo as any;
       const items = await env.DB.prepare(
-        "SELECT id, title, done, assigned_to, linked_task_id, \"order\" FROM todo_items WHERE todo_id = ? ORDER BY assigned_to, \"order\""
+        "SELECT id, title, done, assigned_to, linked_task_id, description, attachments, \"order\" FROM todo_items WHERE todo_id = ? ORDER BY assigned_to, \"order\""
       ).bind(t.id).all();
 
       // Get creator name
       const creator = await env.DB.prepare("SELECT name FROM users WHERE id = ?").bind(t.created_by).first<{ name: string }>();
 
+      let attachments: any[] = [];
       result.push({
         id: t.id,
         weekDate: t.week_date,
         createdBy: creator?.name || null,
         createdAt: t.created_at,
-        items: (items.results || []).map((i: any) => ({
-          id: i.id,
-          title: i.title,
-          done: !!i.done,
-          assignedTo: i.assigned_to,
-          linkedTaskId: i.linked_task_id,
-          order: i.order,
-        })),
+        items: (items.results || []).map((i: any) => {
+          try { attachments = JSON.parse(i.attachments || "[]"); } catch { attachments = []; }
+          return {
+            id: i.id,
+            title: i.title,
+            done: !!i.done,
+            assignedTo: i.assigned_to,
+            linkedTaskId: i.linked_task_id,
+            description: i.description || "",
+            attachments,
+            order: i.order,
+          };
+        }),
       });
     }
 
-    return jsonResponse({ todos: result });
+    // Also fetch tasks with due dates to link with todos
+    const tasksResult = await env.DB.prepare(
+      `SELECT id, title, status, type, category, due_date FROM tasks WHERE org_id = ? AND due_date IS NOT NULL ORDER BY due_date`
+    ).bind(orgId).all();
+
+    const linkedTasks = (tasksResult.results || []).map((t: any) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      type: t.type,
+      category: t.category,
+      dueDate: t.due_date,
+    }));
+
+    return jsonResponse({ todos: result, linkedTasks });
   }
 
   if (request.method === "POST") {
@@ -111,7 +131,7 @@ export async function handleWeeklyTodos(request: Request, env: Env): Promise<Res
     }
 
     if (action === "add_item") {
-      const { todoId, title, assignedTo } = body;
+      const { todoId, title, assignedTo, description, attachments } = body;
       if (dbUser.role === "reader") return jsonResponse({ error: "Accès refusé" }, 403);
       const now = new Date().toISOString();
       const maxOrder = await env.DB.prepare(
@@ -121,9 +141,25 @@ export async function handleWeeklyTodos(request: Request, env: Env): Promise<Res
 
       const itemId = crypto.randomUUID();
       await env.DB.prepare(
-        "INSERT INTO todo_items (id, todo_id, org_id, title, done, assigned_to, \"order\", created_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?)"
-      ).bind(itemId, todoId, orgId, title, assignedTo || "client", order, now).run();
+        "INSERT INTO todo_items (id, todo_id, org_id, title, done, assigned_to, description, attachments, \"order\", created_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)"
+      ).bind(itemId, todoId, orgId, title, assignedTo || "client", description || "", JSON.stringify(attachments || []), order, now).run();
       return jsonResponse({ success: true, id: itemId });
+    }
+
+    if (action === "update_item") {
+      if (dbUser.role === "reader") return jsonResponse({ error: "Accès refusé" }, 403);
+      const { itemId, title, description, attachments } = body;
+      const updates: string[] = [];
+      const values: any[] = [];
+      if (title !== undefined) { updates.push("title = ?"); values.push(title); }
+      if (description !== undefined) { updates.push("description = ?"); values.push(description); }
+      if (attachments !== undefined) { updates.push("attachments = ?"); values.push(JSON.stringify(attachments)); }
+      if (updates.length > 0) {
+        values.push(itemId);
+        await env.DB.prepare(`UPDATE todo_items SET ${updates.join(", ")} WHERE id = ?`)
+          .bind(...values).run();
+      }
+      return jsonResponse({ success: true });
     }
 
     if (action === "remove_item") {
