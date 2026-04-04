@@ -131,7 +131,7 @@ export async function handleWeeklyTodos(request: Request, env: Env): Promise<Res
     }
 
     if (action === "add_item") {
-      const { todoId, title, assignedTo, description, attachments } = body;
+      const { todoId, title, assignedTo, description, attachments, linkedTaskId } = body;
       if (dbUser.role === "reader") return jsonResponse({ error: "Accès refusé" }, 403);
       const now = new Date().toISOString();
       const maxOrder = await env.DB.prepare(
@@ -141,8 +141,8 @@ export async function handleWeeklyTodos(request: Request, env: Env): Promise<Res
 
       const itemId = crypto.randomUUID();
       await env.DB.prepare(
-        "INSERT INTO todo_items (id, todo_id, org_id, title, done, assigned_to, description, attachments, \"order\", created_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)"
-      ).bind(itemId, todoId, orgId, title, assignedTo || "client", description || "", JSON.stringify(attachments || []), order, now).run();
+        "INSERT INTO todo_items (id, todo_id, org_id, title, done, assigned_to, linked_task_id, description, attachments, \"order\", created_at) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)"
+      ).bind(itemId, todoId, orgId, title, assignedTo || "client", linkedTaskId || null, description || "", JSON.stringify(attachments || []), order, now).run();
       return jsonResponse({ success: true, id: itemId });
     }
 
