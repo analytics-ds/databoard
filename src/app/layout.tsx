@@ -18,6 +18,11 @@ export const metadata: Metadata = {
     template: "%s | Databoard",
   },
   description: "Plateforme SEO tout-en-un par datashake",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false },
+  },
   icons: {
     icon: [
       { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },

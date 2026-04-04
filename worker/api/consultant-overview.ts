@@ -53,8 +53,7 @@ export async function handleConsultantOverview(request: Request, env: Env): Prom
     `SELECT wt.id, wt.org_id, wt.week_date, wt.created_at
      FROM weekly_todos wt
      WHERE wt.org_id IN (${placeholders})
-     ORDER BY wt.week_date DESC
-     LIMIT 100`
+     ORDER BY wt.week_date DESC`
   ).bind(...orgIds).all();
 
   const todos = [];
@@ -90,8 +89,7 @@ export async function handleConsultantOverview(request: Request, env: Env): Prom
      FROM tasks t
      LEFT JOIN users u ON t.assignee_id = u.id
      WHERE t.org_id IN (${placeholders})
-     ORDER BY t.due_date IS NULL, t.due_date, t.created_at DESC
-     LIMIT 500`
+     ORDER BY t.due_date IS NULL, t.due_date, t.created_at DESC`
   ).bind(...orgIds).all();
 
   const tasks = (tasksResult.results || []).map((r: any) => {

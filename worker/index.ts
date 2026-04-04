@@ -146,6 +146,10 @@ export default {
     }
 
     // Static assets are handled by the [assets] binding
-    return new Response("Not Found", { status: 404 });
+    // Add noindex header to all responses
+    return new Response("Not Found", {
+      status: 404,
+      headers: { "X-Robots-Tag": "noindex, nofollow" },
+    });
   },
 };
