@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  BarChart3, Globe, Satellite, Search, Loader2, Check, X, Unplug, Plug,
+  BarChart3, Globe, Loader2, Check, X, Unplug, Plug,
 } from "lucide-react";
 
 interface Integration {
@@ -40,26 +40,6 @@ const INTEGRATION_TYPES = [
     iconBg: "bg-orange-100",
     iconColor: "text-orange-600",
     fields: [{ key: "propertyId", label: "ID de propriété GA4", placeholder: "123456789" }],
-    comingSoon: true,
-  },
-  {
-    type: "haloscan",
-    name: "Haloscan API",
-    description: "Clé API Haloscan pour la recherche de mots clés et l'analyse de domaine",
-    icon: Search,
-    iconBg: "bg-purple-100",
-    iconColor: "text-purple-600",
-    fields: [{ key: "apiKey", label: "Clé API", placeholder: "Votre clé API Haloscan" }],
-    comingSoon: false,
-  },
-  {
-    type: "meteoria",
-    name: "Meteoria API (GEO Monitoring)",
-    description: "Monitoring de la visibilité dans les réponses génératives (AI Overview)",
-    icon: Satellite,
-    iconBg: "bg-green-100",
-    iconColor: "text-green-600",
-    fields: [{ key: "apiKey", label: "Clé API", placeholder: "Votre clé API Meteoria" }],
     comingSoon: true,
   },
 ];

@@ -32,6 +32,10 @@ export async function handleProjectTeam(request: Request, env: Env): Promise<Res
     "SELECT id, name, email, role, avatar_url FROM users WHERE role = 'admin'"
   ).all();
 
+  // Get org created_by (principal owner)
+  const org = await env.DB.prepare("SELECT created_by FROM organizations WHERE id = ?")
+    .bind(orgId).first<{ created_by: string | null }>();
+
   // Merge and deduplicate
   const allMembers = new Map<string, any>();
   for (const m of [...(admins.results || []), ...(consultants.results || []), ...(orgMembers.results || [])]) {
@@ -47,5 +51,5 @@ export async function handleProjectTeam(request: Request, env: Env): Promise<Res
     }
   }
 
-  return jsonResponse({ members: Array.from(allMembers.values()) });
+  return jsonResponse({ members: Array.from(allMembers.values()), createdBy: org?.created_by || null });
 }

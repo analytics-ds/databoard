@@ -95,7 +95,7 @@ export async function handleIntegrations(request: Request, env: Env): Promise<Re
       return jsonResponse({ error: "Accès refusé à cette organisation" }, 403);
     }
 
-    const validTypes = ["gsc", "ga4", "haloscan", "meteoria"];
+    const validTypes = ["gsc", "ga4"];
     if (!validTypes.includes(type)) {
       return jsonResponse({ error: "Type d'intégration invalide" }, 400);
     }

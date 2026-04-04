@@ -9,6 +9,8 @@ import { handleSeed } from "./api/seed";
 import { handleAvatar } from "./api/avatar";
 import { handleIntegrations } from "./api/integrations";
 import { handleProjectTeam } from "./api/project-team";
+import { handleTeamManage } from "./api/team-manage";
+import { handleOrgDetails } from "./api/org-details";
 
 export interface Env {
   DB: D1Database;
@@ -77,6 +79,16 @@ export default {
     // Project team members
     if (path === "/api/project-team" && request.method === "GET") {
       return handleProjectTeam(request, env);
+    }
+
+    // Team management (remove members, transfer ownership)
+    if (path === "/api/team-manage" && (request.method === "DELETE" || request.method === "PUT")) {
+      return handleTeamManage(request, env);
+    }
+
+    // Organization details (contacts, notes)
+    if (path === "/api/org-details" && (request.method === "GET" || request.method === "PUT")) {
+      return handleOrgDetails(request, env);
     }
 
     // Seed test data (temporary, remove in production)

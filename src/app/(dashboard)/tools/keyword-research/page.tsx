@@ -10,13 +10,25 @@ import { Search, Loader2, Globe, BarChart3, ArrowUpDown, FileText } from "lucide
 import { getPositionColor } from "@/lib/constants";
 
 async function haloscanCall(endpoint: string, params: Record<string, any>) {
-  const res = await fetch("/api/haloscan", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ endpoint, params }),
-  });
-  if (!res.ok) throw new Error(`API error ${res.status}`);
-  return res.json();
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+    const res = await fetch("/api/haloscan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint, params }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(text || `Erreur ${res.status}`);
+    }
+    return await res.json();
+  } catch (e: any) {
+    if (e.name === "AbortError") throw new Error("Timeout: la requete a pris trop de temps");
+    throw e;
+  }
 }
 
 function formatNum(n: number | undefined | null) {
@@ -153,7 +165,7 @@ function KeywordTab() {
     setLoading(true);
     setError("");
     try {
-      const [overviewRes, matchRes] = await Promise.all([
+      const [overviewRes, matchRes] = await Promise.allSettled([
         haloscanCall("keywords/overview", {
           keyword: query.trim(),
           requested_data: ["metrics", "volume_history"],
@@ -165,10 +177,13 @@ function KeywordTab() {
           order: "desc",
         }),
       ]);
-      setOverview(overviewRes);
-      setMatchResults(matchRes.results || []);
+      if (overviewRes.status === "fulfilled") setOverview(overviewRes.value);
+      if (matchRes.status === "fulfilled") setMatchResults(matchRes.value.results || []);
+      if (overviewRes.status === "rejected" && matchRes.status === "rejected") {
+        setError("Erreur lors de la recherche. Verifiez votre cle API Haloscan.");
+      }
     } catch {
-      setError("Erreur lors de la recherche. Verifiez votre cle API Haloscan.");
+      setError("Erreur lors de la recherche.");
     } finally {
       setLoading(false);
     }
@@ -380,7 +395,7 @@ function DomainTab() {
     setData(null);
     setCompetitors([]);
     try {
-      const [overviewRes, posRes, compRes] = await Promise.all([
+      const [overviewRes, posRes, compRes] = await Promise.allSettled([
         haloscanCall("domains/overview", {
           input: domain.trim(),
           mode: "domain",
@@ -398,15 +413,20 @@ function DomainTab() {
           input: domain.trim(),
           mode: "domain",
           lineCount: 10,
-        }).catch(() => ({ results: [] })),
+        }),
       ]);
-      setData(overviewRes);
-      setPositions(posRes.results || []);
-      setTotalPositions(posRes.total_result_count || posRes.filtered_result_count || 0);
-      setPositionPage(1);
-      setCompetitors(compRes.results || []);
+      if (overviewRes.status === "fulfilled") setData(overviewRes.value);
+      if (posRes.status === "fulfilled") {
+        setPositions(posRes.value.results || []);
+        setTotalPositions(posRes.value.total_result_count || posRes.value.filtered_result_count || 0);
+        setPositionPage(1);
+      }
+      if (compRes.status === "fulfilled") setCompetitors(compRes.value.results || []);
+      if (overviewRes.status === "rejected" && posRes.status === "rejected") {
+        setError("Erreur lors de l'analyse. Verifiez le domaine et votre cle API.");
+      }
     } catch {
-      setError("Erreur lors de l'analyse. Verifiez le domaine et votre cle API.");
+      setError("Erreur lors de l'analyse.");
     } finally {
       setLoading(false);
     }

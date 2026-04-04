@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Key, Camera, Trash2, User, Shield, Building2 } from "lucide-react";
+import { Save, Key, Camera, Trash2, User, Shield, Building2, Search, Loader2, Link2, Unlink, ChevronDown } from "lucide-react";
 import { AdminPanel } from "@/components/admin/admin-panel";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -155,37 +155,8 @@ export default function ProfilePage() {
         </TabsContent>
 
         {(isConsultant || isAdmin) && (
-          <TabsContent value="projects" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Mes projets</CardTitle>
-                <CardDescription>
-                  {isAdmin ? "Tous les projets de la plateforme" : "Les projets auxquels vous etes assigne"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {clients.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">Aucun projet assigne</p>
-                ) : (
-                  <div className="space-y-2">
-                    {clients.map((client) => (
-                      <div key={client.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3 hover:bg-muted/30 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
-                            {client.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{client.name}</p>
-                            {client.domain && <p className="text-xs text-muted-foreground">{client.domain}</p>}
-                          </div>
-                        </div>
-                        <Badge variant="secondary" className="text-[10px]">Projet</Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <TabsContent value="projects">
+            <ProjectsTab isAdmin={isAdmin} />
           </TabsContent>
         )}
 
@@ -195,6 +166,213 @@ export default function ProfilePage() {
           </TabsContent>
         )}
       </Tabs>
+    </div>
+  );
+}
+
+function ProjectsTab({ isAdmin }: { isAdmin: boolean }) {
+  const { clients } = useAuth();
+  const [search, setSearch] = useState("");
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [allOrgs, setAllOrgs] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [expandedProject, setExpandedProject] = useState<string | null>(null);
+  const [assignDropdown, setAssignDropdown] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/clients");
+      if (res.ok) {
+        const data = await res.json();
+        setAllUsers(data.users || []);
+        setAllOrgs(data.organizations || []);
+        setAssignments(data.assignments || []);
+      }
+    } catch {} finally { setLoading(false); }
+  }, [isAdmin]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const projects = isAdmin
+    ? allOrgs.filter((o) => o.name !== "datashake")
+    : clients;
+
+  const consultants = allUsers.filter((u) => u.role === "consultant");
+
+  const filtered = projects.filter((p) =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.domain || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  async function handleAssign(consultantId: string, orgId: string) {
+    setActionLoading(`assign-${consultantId}-${orgId}`);
+    try {
+      await fetch("/api/admin/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "assign", consultantId, orgId }),
+      });
+      await fetchData();
+    } finally { setActionLoading(null); }
+  }
+
+  async function handleUnassign(consultantId: string, orgId: string) {
+    setActionLoading(`unassign-${consultantId}-${orgId}`);
+    try {
+      await fetch("/api/admin/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unassign", consultantId, orgId }),
+      });
+      await fetchData();
+    } finally { setActionLoading(null); }
+  }
+
+  if (loading) {
+    return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Mes projets</CardTitle>
+              <CardDescription>{filtered.length} projet{filtered.length !== 1 ? "s" : ""}</CardDescription>
+            </div>
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Rechercher un projet..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-8 text-sm"
+              />
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Aucun projet trouve</p>
+          ) : (
+            <div className="space-y-2">
+              {filtered.map((project) => {
+                const isExpanded = expandedProject === project.id;
+                const projectAssignments = assignments.filter((a) => a.org_id === project.id);
+                const assignedConsultants = consultants.filter((c) =>
+                  projectAssignments.some((a: any) => a.consultant_id === c.id)
+                );
+                const unassignedConsultants = consultants.filter((c) =>
+                  !projectAssignments.some((a: any) => a.consultant_id === c.id)
+                );
+
+                return (
+                  <div key={project.id} className="rounded-lg border border-border">
+                    <button
+                      onClick={() => setExpandedProject(isExpanded ? null : project.id)}
+                      className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                          {project.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{project.name}</p>
+                          {project.domain && <p className="text-xs text-muted-foreground">{project.domain}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isAdmin && assignedConsultants.length > 0 && (
+                          <Badge className="bg-blue-100 text-blue-700 text-[10px]">
+                            {assignedConsultants.length} consultant{assignedConsultants.length !== 1 ? "s" : ""}
+                          </Badge>
+                        )}
+                        {isAdmin && (
+                          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                        )}
+                      </div>
+                    </button>
+
+                    {isAdmin && isExpanded && (
+                      <div className="border-t border-border px-4 py-3 bg-muted/20">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Consultants assignes</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {assignedConsultants.map((c) => (
+                            <button
+                              key={c.id}
+                              onClick={() => handleUnassign(c.id, project.id)}
+                              disabled={actionLoading === `unassign-${c.id}-${project.id}`}
+                              className="flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-xs font-medium hover:border-red-300 hover:bg-red-50 hover:text-red-700 transition-colors group"
+                              title="Retirer"
+                            >
+                              {actionLoading === `unassign-${c.id}-${project.id}` ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <>
+                                  {c.avatar_url ? (
+                                    <img src={c.avatar_url} alt={c.name} className="h-4 w-4 rounded-full object-cover" />
+                                  ) : null}
+                                  {c.name}
+                                  <Unlink className="h-3 w-3 opacity-0 group-hover:opacity-100 text-red-500" />
+                                </>
+                              )}
+                            </button>
+                          ))}
+
+                          {unassignedConsultants.length > 0 && (
+                            <div className="relative">
+                              <button
+                                onClick={() => setAssignDropdown(assignDropdown === project.id ? null : project.id)}
+                                className="flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                              >
+                                <Link2 className="h-3 w-3" />Ajouter
+                              </button>
+                              {assignDropdown === project.id && (
+                                <>
+                                  <div className="fixed inset-0 z-40" onClick={() => setAssignDropdown(null)} />
+                                  <div className="absolute left-0 top-full z-50 mt-1 w-52 max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
+                                    {unassignedConsultants.map((c) => (
+                                      <button
+                                        key={c.id}
+                                        onClick={() => { handleAssign(c.id, project.id); setAssignDropdown(null); }}
+                                        className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-muted first:rounded-t-lg last:rounded-b-lg"
+                                      >
+                                        {c.avatar_url ? (
+                                          <img src={c.avatar_url} alt={c.name} className="h-5 w-5 rounded-full object-cover" />
+                                        ) : (
+                                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-[8px] font-bold text-blue-700">
+                                            {c.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
+                                          </div>
+                                        )}
+                                        <span className="truncate">{c.name}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          {assignedConsultants.length === 0 && unassignedConsultants.length === 0 && (
+                            <p className="text-xs text-muted-foreground">Aucun consultant disponible</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
