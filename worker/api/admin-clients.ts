@@ -80,7 +80,14 @@ export async function handleAdminClients(request: Request, env: Env): Promise<Re
       // Don't allow deleting the datashake org
       if (orgId === "org-datashake") return jsonResponse({ error: "Impossible de supprimer l'organisation datashake" }, 403);
 
-      // CASCADE will handle related data (users, keywords, tasks, etc.)
+      // Detach users from the org (don't delete them — they just lose access)
+      await env.DB.prepare("UPDATE users SET org_id = 'org-datashake' WHERE org_id = ? AND role IN ('client', 'reader')")
+        .bind(orgId).run();
+
+      // Remove consultant assignments for this org
+      await env.DB.prepare("DELETE FROM consultant_clients WHERE org_id = ?").bind(orgId).run();
+
+      // Now delete the org (CASCADE cleans up keywords, tasks, content, etc. but NOT users)
       await env.DB.prepare("DELETE FROM organizations WHERE id = ?").bind(orgId).run();
       return jsonResponse({ success: true, deleted: org.name });
     }
