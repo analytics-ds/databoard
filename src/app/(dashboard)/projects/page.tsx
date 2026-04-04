@@ -125,7 +125,6 @@ export default function ProjectsPage() {
   // --- Add item inline state ---
   const [addingToTodo, setAddingToTodo] = useState<string | null>(null);
   const [addItemTitle, setAddItemTitle] = useState("");
-  const assignSelectRef = useRef<HTMLSelectElement>(null);
   const taskSelectRef = useRef<HTMLSelectElement>(null);
 
   // --- Open tasks for linking ---
@@ -194,11 +193,9 @@ export default function ProjectsPage() {
     }
   }
 
-  // --- Add item ---
-  async function addItem(todoId: string) {
+  // --- Add item (explicit assignedTo parameter, no select needed) ---
+  async function addItem(todoId: string, assignedTo: "client" | "datashake") {
     if (!activeClient || !addItemTitle.trim()) return;
-    // Read directly from DOM selects to avoid any stale closure issues
-    const assignedTo = assignSelectRef.current?.value || "client";
     const linkedTaskId = taskSelectRef.current?.value || null;
     try {
       await fetch("/api/weekly-todos", {
@@ -625,7 +622,7 @@ export default function ProjectsPage() {
                           }}
                         >
                           <option value="client">Client</option>
-                          <option value="datashake">Datashake</option>
+                          <option value="datashake">DATASHAKE</option>
                         </select>
                         {newItems.length > 1 && (
                           <button
@@ -745,9 +742,9 @@ export default function ProjectsPage() {
                     )}
                   </div>
                   <div className="space-y-3">
-                    {renderItems(datashakeItems, "Pour Datashake")}
+                    {renderItems(datashakeItems, "Pour DATASHAKE")}
                     {datashakeItems.length === 0 && (
-                      <p className="text-xs text-muted-foreground">Aucune action pour Datashake.</p>
+                      <p className="text-xs text-muted-foreground">Aucune action pour DATASHAKE.</p>
                     )}
                   </div>
                 </div>
@@ -794,15 +791,16 @@ export default function ProjectsPage() {
                     {addingToTodo === latest.id ? (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <Input className="flex-1" placeholder="Nouvelle action..." value={addItemTitle}
+                          <Input className="flex-1" placeholder="Titre de l'action..." value={addItemTitle}
                             onChange={(e) => setAddItemTitle(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") addItem(latest.id); if (e.key === "Escape") { setAddingToTodo(null); setAddItemTitle(""); } }}
+                            onKeyDown={(e) => { if (e.key === "Escape") { setAddingToTodo(null); setAddItemTitle(""); } }}
                             autoFocus />
-                          <select ref={assignSelectRef} className="h-9 rounded-md border border-input bg-background px-2 text-xs" defaultValue="client">
-                            <option value="client">Client</option>
-                            <option value="datashake">Datashake</option>
-                          </select>
-                          <Button size="sm" onClick={() => addItem(latest.id)}>Ajouter</Button>
+                          <Button size="sm" variant="outline" onClick={() => addItem(latest.id, "client")} disabled={!addItemTitle.trim()}>
+                            + {activeClient?.name || "Client"}
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-blue-600 border-blue-200 hover:bg-blue-50" onClick={() => addItem(latest.id, "datashake")} disabled={!addItemTitle.trim()}>
+                            + DATASHAKE
+                          </Button>
                           <Button size="sm" variant="ghost" onClick={() => { setAddingToTodo(null); setAddItemTitle(""); }}>Annuler</Button>
                         </div>
                         {openTasks.length > 0 && (
@@ -875,7 +873,7 @@ export default function ProjectsPage() {
                             <CardContent className="pt-0 pb-4">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>{renderItems(hClientItems, `Pour ${activeClient?.name ?? "le client"}`)}</div>
-                                <div>{renderItems(hDatashakeItems, "Pour Datashake")}</div>
+                                <div>{renderItems(hDatashakeItems, "Pour DATASHAKE")}</div>
                               </div>
                             </CardContent>
                           )}
