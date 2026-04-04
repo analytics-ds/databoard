@@ -15,6 +15,7 @@ import {
   Calendar,
   FileArchive,
   BookOpen,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 
@@ -127,6 +128,13 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
 ];
+
+// Consultant/admin only — cross-client overview
+export const CONSULTANT_NAV: NavItem = {
+  title: "Vue d'ensemble",
+  href: "/overview",
+  icon: LayoutGrid,
+};
 
 export const BOTTOM_NAV: NavItem[] = [
   { title: "Alertes", href: "/alerts", icon: Bell, badge: 3 },

@@ -13,6 +13,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/traffic": "Mon trafic",
   "/tools/keyword-research": "Recherche de mots clés",
   "/tools/geo": "GEO Monitoring",
+  "/overview": "Vue d'ensemble",
   "/projects": "Suivi du projet",
   "/projects/kanban": "Tâches",
   "/projects/reports": "Comptes rendus",

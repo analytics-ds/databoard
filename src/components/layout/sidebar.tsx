@@ -4,14 +4,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { NAV_SECTIONS, BOTTOM_NAV } from "@/lib/constants";
+import { NAV_SECTIONS, BOTTOM_NAV, CONSULTANT_NAV } from "@/lib/constants";
 import { useAuth } from "@/lib/auth-context";
 import { ChevronLeft, ChevronRight, ChevronDown, LogOut, Building2, Check } from "lucide-react";
 import { useState } from "react";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user, organization, activeClient, clients, setActiveClient, canSwitchClients, logout } = useAuth();
+  const { user, organization, activeClient, clients, setActiveClient, canSwitchClients, isAdmin, isConsultant, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
@@ -118,6 +118,24 @@ export function Sidebar() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Consultant overview link */}
+      {!collapsed && (isAdmin || isConsultant) && (
+        <div className="border-b border-sidebar-border px-2.5 py-1.5">
+          <Link
+            href={CONSULTANT_NAV.href}
+            className={cn(
+              "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+              pathname === CONSULTANT_NAV.href
+                ? "bg-sidebar-accent text-white"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-white"
+            )}
+          >
+            <CONSULTANT_NAV.icon className="h-4 w-4 shrink-0" />
+            <span>{CONSULTANT_NAV.title}</span>
+          </Link>
         </div>
       )}
 

@@ -18,6 +18,7 @@ import { handleWorkDocuments } from "./api/work-documents";
 import { handleResources } from "./api/resources";
 import { handleFiles } from "./api/files";
 import { handleProjectTasks } from "./api/project-tasks";
+import { handleConsultantOverview } from "./api/consultant-overview";
 
 export interface Env {
   DB: D1Database;
@@ -127,6 +128,11 @@ export default {
     // Project tasks (kanban)
     if (path === "/api/project-tasks") {
       return handleProjectTasks(request, env);
+    }
+
+    // Consultant overview (cross-client recap)
+    if (path === "/api/consultant-overview" && request.method === "GET") {
+      return handleConsultantOverview(request, env);
     }
 
     // File uploads (R2)
