@@ -150,7 +150,7 @@ export default function ProjectsPage() {
       const tasksRes = await fetch(`/api/project-tasks?org_id=${activeClient.id}`);
       if (tasksRes.ok) {
         const tasksData = await tasksRes.json();
-        setOpenTasks((tasksData.tasks || []).filter((t: any) => t.status !== "done"));
+        setOpenTasks((tasksData.tasks || []).filter((t: any) => t.status !== "done" && t.status !== "termine"));
       }
     } catch {
       // silently fail — empty state shown
