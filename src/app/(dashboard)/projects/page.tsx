@@ -118,8 +118,8 @@ export default function ProjectsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newWeekDate, setNewWeekDate] = useState(getNextMonday);
   const [newItems, setNewItems] = useState<
-    { title: string; assignedTo: "client" | "datashake" }[]
-  >([{ title: "", assignedTo: "client" }, { title: "", assignedTo: "datashake" }]);
+    { title: string; assignedTo: "client" | "datashake"; linkedTaskId: string }[]
+  >([{ title: "", assignedTo: "client", linkedTaskId: "" }, { title: "", assignedTo: "datashake", linkedTaskId: "" }]);
   const [creating, setCreating] = useState(false);
 
   // --- Add item inline state ---
@@ -303,12 +303,13 @@ export default function ProjectsPage() {
           items: validItems.map((i) => ({
             title: i.title.trim(),
             assignedTo: i.assignedTo,
+            linkedTaskId: i.linkedTaskId || null,
           })),
         }),
       });
       setCreateOpen(false);
       setNewWeekDate(getNextMonday());
-      setNewItems([{ title: "", assignedTo: "client" }, { title: "", assignedTo: "datashake" }]);
+      setNewItems([{ title: "", assignedTo: "client", linkedTaskId: "" }, { title: "", assignedTo: "datashake", linkedTaskId: "" }]);
       fetchTodos();
     } catch {
       // ignore
@@ -367,6 +368,13 @@ export default function ProjectsPage() {
   function updateNewItemTitle(index: number, value: string) {
     setNewItems((prev) =>
       prev.map((item, i) => (i === index ? { ...item, title: value } : item))
+    );
+  }
+
+  // --- Update linked task ---
+  function updateNewItemLinkedTask(index: number, value: string) {
+    setNewItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, linkedTaskId: value } : item))
     );
   }
 
@@ -523,17 +531,21 @@ export default function ProjectsPage() {
                     {item.title}
                   </button>
 
-                  {/* Linked task icon */}
-                  {item.linkedTaskId && (
-                    <Link
-                      href="/projects/kanban"
-                      className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
-                      title="Voir la tâche liée"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Link2 className="h-4 w-4" />
-                    </Link>
-                  )}
+                  {/* Linked task badge */}
+                  {item.linkedTaskId && (() => {
+                    const task = openTasks.find((t) => t.id === item.linkedTaskId);
+                    return (
+                      <Link
+                        href="/projects/kanban"
+                        className="shrink-0 flex items-center gap-1 text-[10px] text-primary hover:underline transition-colors"
+                        title={task ? `Tâche : ${task.title}` : "Voir la tâche liée"}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Link2 className="h-3 w-3" />
+                        {task ? task.title.slice(0, 25) + (task.title.length > 25 ? "…" : "") : "Tâche liée"}
+                      </Link>
+                    );
+                  })()}
 
                   {/* Attachment indicator */}
                   {(item.attachments?.length ?? 0) > 0 && (
@@ -604,19 +616,28 @@ export default function ProjectsPage() {
                     {newItems.filter(i => i.assignedTo === "client").map((item) => {
                       const realIdx = newItems.indexOf(item);
                       return (
-                        <div key={realIdx} className="flex items-center gap-2">
-                          <Input className="flex-1" placeholder="Titre de l'action" value={item.title}
-                            onChange={(e) => updateNewItemTitle(realIdx, e.target.value)} />
-                          {newItems.length > 1 && (
-                            <button onClick={() => removeNewItem(realIdx)} className="text-muted-foreground hover:text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                        <div key={realIdx} className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Input className="flex-1" placeholder="Titre de l'action" value={item.title}
+                              onChange={(e) => updateNewItemTitle(realIdx, e.target.value)} />
+                            {newItems.length > 1 && (
+                              <button onClick={() => removeNewItem(realIdx)} className="text-muted-foreground hover:text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                          {openTasks.length > 0 && (
+                            <select className="h-7 w-full rounded border border-input bg-background px-2 text-[11px] text-muted-foreground"
+                              value={item.linkedTaskId} onChange={(e) => updateNewItemLinkedTask(realIdx, e.target.value)}>
+                              <option value="">Lier à une tâche (optionnel)</option>
+                              {openTasks.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                            </select>
                           )}
                         </div>
                       );
                     })}
                     <Button variant="outline" size="sm" className="gap-1.5 text-xs"
-                      onClick={() => setNewItems((prev) => [...prev, { title: "", assignedTo: "client" }])}>
+                      onClick={() => setNewItems((prev) => [...prev, { title: "", assignedTo: "client", linkedTaskId: "" }])}>
                       <Plus className="h-3 w-3" />Ajouter pour {activeClient?.name || "le client"}
                     </Button>
                   </div>
@@ -627,17 +648,26 @@ export default function ProjectsPage() {
                     {newItems.filter(i => i.assignedTo === "datashake").map((item) => {
                       const realIdx = newItems.indexOf(item);
                       return (
-                        <div key={realIdx} className="flex items-center gap-2">
-                          <Input className="flex-1" placeholder="Titre de l'action" value={item.title}
-                            onChange={(e) => updateNewItemTitle(realIdx, e.target.value)} />
-                          <button onClick={() => removeNewItem(realIdx)} className="text-muted-foreground hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                        <div key={realIdx} className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Input className="flex-1" placeholder="Titre de l'action" value={item.title}
+                              onChange={(e) => updateNewItemTitle(realIdx, e.target.value)} />
+                            <button onClick={() => removeNewItem(realIdx)} className="text-muted-foreground hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {openTasks.length > 0 && (
+                            <select className="h-7 w-full rounded border border-input bg-background px-2 text-[11px] text-muted-foreground"
+                              value={item.linkedTaskId} onChange={(e) => updateNewItemLinkedTask(realIdx, e.target.value)}>
+                              <option value="">Lier à une tâche (optionnel)</option>
+                              {openTasks.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                            </select>
+                          )}
                         </div>
                       );
                     })}
                     <Button variant="outline" size="sm" className="gap-1.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
-                      onClick={() => setNewItems((prev) => [...prev, { title: "", assignedTo: "datashake" }])}>
+                      onClick={() => setNewItems((prev) => [...prev, { title: "", assignedTo: "datashake", linkedTaskId: "" }])}>
                       <Plus className="h-3 w-3" />Ajouter pour DATASHAKE
                     </Button>
                   </div>
