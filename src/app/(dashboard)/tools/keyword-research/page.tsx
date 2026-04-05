@@ -384,7 +384,7 @@ function KeywordTab() {
             </button>
           </div>
 
-          {subTab === "match" && <KeywordTable data={matchResults} />}
+          {subTab === "match" && <KeywordTable data={matchResults} showKgr />}
 
           {subTab === "history" && volumeHistory.length > 0 && (
             <Card>
@@ -903,7 +903,7 @@ function BulkTab() {
         <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive border border-destructive/20">{error}</div>
       )}
 
-      {results.length > 0 && <KeywordTable data={results} />}
+      {results.length > 0 && <KeywordTable data={results} showKgr />}
     </div>
   );
 }
