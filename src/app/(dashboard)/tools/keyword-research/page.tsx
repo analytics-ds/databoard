@@ -149,7 +149,7 @@ function LineChart({ data, height = 160, color = "#2563eb", label = "Valeur" }: 
 
   return (
     <div className="relative" onMouseLeave={() => setHoverIdx(null)}>
-      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full" style={{ height }} onMouseMove={handleMouseMove}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }} onMouseMove={handleMouseMove}>
         <defs>
           <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity="0.15" />
@@ -359,15 +359,14 @@ function KeywordTab() {
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">CPC moyen</p>
                 <p className="text-2xl font-bold">{Number(cpc).toFixed(2)} EUR</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  KGR: {seoMetrics.kgr != null ? Number(seoMetrics.kgr).toFixed(2) : "-"}
-                </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
-                <p className="text-xs text-muted-foreground mb-1">Concurrence</p>
-                <CompetitionBar value={competition} />
+                <p className="text-xs text-muted-foreground mb-1">KGR (Keyword Golden Ratio)</p>
+                <div className="flex items-center gap-2">
+                  <KgrBadge value={seoMetrics.kgr} />
+                </div>
                 <p className="text-xs text-muted-foreground mt-2">
                   {formatNum(seoMetrics.results_count)} resultats Google
                 </p>
@@ -701,7 +700,6 @@ function DomainTab() {
             {[
               { label: "Mots cles", value: formatNum(stats.total_keyword_count) },
               { label: "Trafic organique", value: formatNum(stats.total_traffic) },
-              { label: "Valeur du trafic", value: `${formatNum(stats.traffic_value)} EUR` },
               { label: "Pages actives", value: formatNum(stats.active_page_count) },
             ].map((kpi) => (
               <Card key={kpi.label}>
@@ -711,6 +709,20 @@ function DomainTab() {
                 </CardContent>
               </Card>
             ))}
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-1.5 mb-1 group relative">
+                  <p className="text-xs text-muted-foreground">Indice de visibilite</p>
+                  <span className="text-muted-foreground/50 text-[10px] cursor-help">?</span>
+                  <div className="absolute left-0 top-full mt-1 z-50 hidden group-hover:block w-60 rounded-lg border border-border bg-popover p-3 shadow-lg">
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Score de 0 a 100 mesurant la presence du domaine dans les resultats Google, pondere par la position et le volume de recherche de chaque mot cle.
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xl font-bold">{visHistory.length > 0 ? visHistory[visHistory.length - 1].value : "-"}</p>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Position distribution */}
