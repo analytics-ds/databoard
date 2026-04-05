@@ -99,16 +99,13 @@ function CompetitionBar({ value }: { value: number }) {
   );
 }
 
-function LineChart({ data, height = 160, color = "#2563eb", fillColor = "rgba(37,99,235,0.08)", showLabels = true, showValues = true }: {
+function LineChart({ data, height = 160, color = "#2563eb" }: {
   data: { label: string; value: number }[];
   height?: number;
   color?: string;
-  fillColor?: string;
-  showLabels?: boolean;
-  showValues?: boolean;
 }) {
   if (data.length < 2) return null;
-  const padding = { top: showValues ? 24 : 8, right: 8, bottom: showLabels ? 24 : 8, left: 8 };
+  const padding = { top: 28, right: 12, bottom: 28, left: 48 };
   const w = 600;
   const h = height;
   const chartW = w - padding.left - padding.right;
@@ -126,6 +123,13 @@ function LineChart({ data, height = 160, color = "#2563eb", fillColor = "rgba(37
   const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
   const areaPath = `${linePath} L${points[points.length - 1].x},${padding.top + chartH} L${points[0].x},${padding.top + chartH} Z`;
 
+  // Smart label stepping: show ~6-8 labels max
+  const labelStep = Math.max(1, Math.ceil(data.length / 7));
+  // Smart value stepping: show ~5-6 values max
+  const valueStep = Math.max(1, Math.ceil(data.length / 5));
+  // Y-axis: 5 ticks
+  const yTicks = [0, 0.25, 0.5, 0.75, 1];
+
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }}>
       <defs>
@@ -134,33 +138,40 @@ function LineChart({ data, height = 160, color = "#2563eb", fillColor = "rgba(37
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      {/* Grid lines */}
-      {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
-        <line key={pct} x1={padding.left} y1={padding.top + chartH * (1 - pct)} x2={w - padding.right} y2={padding.top + chartH * (1 - pct)} stroke="#e5e7eb" strokeWidth="0.5" />
-      ))}
+      {/* Grid lines + Y-axis labels */}
+      {yTicks.map((pct) => {
+        const yVal = min + range * pct;
+        return (
+          <g key={pct}>
+            <line x1={padding.left} y1={padding.top + chartH * (1 - pct)} x2={w - padding.right} y2={padding.top + chartH * (1 - pct)} stroke="#e5e7eb" strokeWidth="0.5" />
+            <text x={padding.left - 6} y={padding.top + chartH * (1 - pct) + 3} textAnchor="end" className="text-[9px] fill-muted-foreground">
+              {yVal >= 1000 ? `${(yVal / 1000).toFixed(1)}k` : Math.round(yVal * 10) / 10}
+            </text>
+          </g>
+        );
+      })}
       {/* Area fill */}
       <path d={areaPath} fill="url(#chartGrad)" />
       {/* Line */}
       <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {/* Dots */}
-      {points.map((p, i) => (
+      {/* Dots — only show for small datasets */}
+      {data.length <= 24 && points.map((p, i) => (
         <circle key={i} cx={p.x} cy={p.y} r="3" fill="white" stroke={color} strokeWidth="1.5" />
       ))}
-      {/* Values */}
-      {showValues && points.map((p, i) => {
-        if (data.length > 16 && i % 2 !== 0) return null;
+      {/* Values — show sparsely */}
+      {points.map((p, i) => {
+        if (i % valueStep !== 0 && i !== data.length - 1) return null;
         return (
-          <text key={`v${i}`} x={p.x} y={p.y - 8} textAnchor="middle" className="text-[9px] fill-muted-foreground font-medium">
-            {formatNum(p.value)}
+          <text key={`v${i}`} x={p.x} y={p.y - 10} textAnchor="middle" className="text-[9px] fill-muted-foreground font-medium">
+            {p.value >= 1000 ? `${(p.value / 1000).toFixed(1)}k` : Math.round(p.value * 10) / 10}
           </text>
         );
       })}
-      {/* Labels */}
-      {showLabels && points.map((p, i) => {
-        const step = data.length > 20 ? 4 : data.length > 12 ? 2 : 1;
-        if (i % step !== 0 && i !== data.length - 1) return null;
+      {/* X-axis labels */}
+      {points.map((p, i) => {
+        if (i % labelStep !== 0 && i !== data.length - 1) return null;
         return (
-          <text key={`l${i}`} x={p.x} y={h - 4} textAnchor="middle" className="text-[9px] fill-muted-foreground">
+          <text key={`l${i}`} x={p.x} y={h - 6} textAnchor="middle" className="text-[9px] fill-muted-foreground">
             {p.label}
           </text>
         );
@@ -375,33 +386,45 @@ function KeywordTab() {
 
 function StackedPositionsChart({ data }: { data: any[] }) {
   if (data.length < 2) return null;
+
+  // Aggregate daily data to monthly (last value per month)
+  const monthlyMap = new Map<string, { label: string; top3: number; top10Raw: number; top50Raw: number; top100Raw: number }>();
+  for (const d of data) {
+    const dateStr = d.search_date || d.date || "";
+    try {
+      const dt = new Date(dateStr);
+      const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
+      const label = dt.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+      monthlyMap.set(key, {
+        label,
+        top3: Number(d.top_3_positions || d.top_3 || 0) || 0,
+        top10Raw: Number(d.top_10_positions || d.top_10 || 0) || 0,
+        top50Raw: Number(d.top_50_positions || d.top_50 || 0) || 0,
+        top100Raw: Number(d.top_100_positions || d.top_100 || 0) || 0,
+      });
+    } catch {}
+  }
+
+  const parsed = Array.from(monthlyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => ({
+      label: v.label,
+      top3: v.top3,
+      top10: Math.max(0, v.top10Raw - v.top3),
+      top50: Math.max(0, v.top50Raw - v.top10Raw),
+      top100: Math.max(0, v.top100Raw - v.top50Raw),
+      total: v.top100Raw,
+    }));
+
+  if (parsed.length < 2) return null;
+
   const padding = { top: 8, right: 8, bottom: 28, left: 50 };
   const w = 700;
   const h = 220;
   const chartW = w - padding.left - padding.right;
   const chartH = h - padding.top - padding.bottom;
-
-  const parsed = data.map((d) => {
-    const dateStr = d.search_date || d.date || "";
-    let label = dateStr;
-    try { label = new Date(dateStr).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }); } catch {}
-    const top3 = Number(d.top_3_positions || d.top_3 || 0) || 0;
-    const top10Raw = Number(d.top_10_positions || d.top_10 || 0) || 0;
-    const top50Raw = Number(d.top_50_positions || d.top_50 || 0) || 0;
-    const top100Raw = Number(d.top_100_positions || d.top_100 || 0) || 0;
-    return {
-      date: dateStr,
-      label,
-      top3,
-      top10: Math.max(0, top10Raw - top3),
-      top50: Math.max(0, top50Raw - top10Raw),
-      top100: Math.max(0, top100Raw - top50Raw),
-      total: top100Raw,
-    };
-  });
-
   const max = Math.max(...parsed.map((d) => d.total));
-  const barW = Math.max(2, (chartW / parsed.length) - 1);
+  const barW = Math.max(4, (chartW / parsed.length) - 2);
 
   const bands = [
     { key: "top3" as const, color: "#10b981" },
@@ -410,13 +433,18 @@ function StackedPositionsChart({ data }: { data: any[] }) {
     { key: "top100" as const, color: "#f97316" },
   ];
 
+  function formatAxis(n: number) {
+    if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
+    return String(Math.round(n));
+  }
+
   return (
     <div>
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }}>
         {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
           <g key={pct}>
             <line x1={padding.left} y1={padding.top + chartH * (1 - pct)} x2={w - padding.right} y2={padding.top + chartH * (1 - pct)} stroke="#e5e7eb" strokeWidth="0.5" />
-            <text x={padding.left - 4} y={padding.top + chartH * (1 - pct) + 3} textAnchor="end" className="text-[8px] fill-muted-foreground">{formatNum(Math.round(max * pct))}</text>
+            <text x={padding.left - 4} y={padding.top + chartH * (1 - pct) + 3} textAnchor="end" className="text-[9px] fill-muted-foreground">{formatAxis(max * pct)}</text>
           </g>
         ))}
         {parsed.map((d, i) => {
@@ -428,10 +456,10 @@ function StackedPositionsChart({ data }: { data: any[] }) {
                 const val = d[band.key];
                 const barH = max > 0 ? (val / max) * chartH : 0;
                 y -= barH;
-                return <rect key={band.key} x={x} y={y} width={barW} height={barH} fill={band.color} opacity="0.8" rx="0.5" />;
+                return <rect key={band.key} x={x} y={y} width={barW} height={barH} fill={band.color} opacity="0.85" rx="1" />;
               })}
-              {i % Math.max(1, Math.floor(parsed.length / 8)) === 0 && (
-                <text x={x + barW / 2} y={h - 6} textAnchor="middle" className="text-[8px] fill-muted-foreground">{d.label}</text>
+              {i % Math.max(1, Math.ceil(parsed.length / 8)) === 0 && (
+                <text x={x + barW / 2} y={h - 6} textAnchor="middle" className="text-[9px] fill-muted-foreground">{d.label}</text>
               )}
             </g>
           );
@@ -543,10 +571,32 @@ function DomainTab() {
   const stats = data?.metrics?.stats || data?.metrics || null;
   const posBreakdown = data?.positions_breakdown_history?.results || data?.positions_breakdown_history || [];
   const visHistoryRaw = data?.visibility_index_history?.results || data?.visibility_index_history || [];
-  const visHistory = Array.isArray(visHistoryRaw) ? visHistoryRaw.map((p: any) => ({
-    label: (() => { try { return new Date(p.agg_date || p.date).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }); } catch { return p.date || ""; } })(),
-    value: Number(p.visibility_index || p.index || 0) || 0,
-  })) : [];
+  // Aggregate daily data to monthly averages for readability
+  const visHistory: { label: string; value: number }[] = (() => {
+    if (!Array.isArray(visHistoryRaw) || visHistoryRaw.length === 0) return [];
+    const monthly = new Map<string, { sum: number; count: number }>();
+    for (const p of visHistoryRaw) {
+      try {
+        const d = new Date(p.agg_date || p.date);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        const label = d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+        const val = Number(p.visibility_index || p.index || 0) || 0;
+        const existing = monthly.get(key);
+        if (existing) { existing.sum += val; existing.count++; }
+        else monthly.set(key, { sum: val, count: 1 });
+      } catch {}
+    }
+    return Array.from(monthly.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, { sum, count }]) => {
+        const [y, m] = key.split("-");
+        const d = new Date(Number(y), Number(m) - 1);
+        return {
+          label: d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
+          value: Math.round((sum / count) * 10) / 10,
+        };
+      });
+  })();
   const bestPages = data?.best_pages?.results || data?.best_pages || [];
 
   return (
