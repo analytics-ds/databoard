@@ -131,15 +131,10 @@ function LineChart({ data, height = 160, color = "#2563eb", label = "Valeur" }: 
 
   function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
-    const mouseX = ((e.clientX - rect.left) / rect.width) * w;
-    // Find closest point
-    let closest = 0;
-    let closestDist = Infinity;
-    for (let i = 0; i < points.length; i++) {
-      const dist = Math.abs(points[i].x - mouseX);
-      if (dist < closestDist) { closestDist = dist; closest = i; }
-    }
-    setHoverIdx(closest);
+    // Use simple ratio mapping — avoids viewBox/preserveAspectRatio issues
+    const relX = (e.clientX - rect.left) / rect.width;
+    const idx = Math.round(relX * (data.length - 1));
+    setHoverIdx(Math.max(0, Math.min(data.length - 1, idx)));
   }
 
   const hp = hoverIdx != null ? points[hoverIdx] : null;
@@ -767,12 +762,12 @@ function DomainTab() {
 
           {domainSubTab === "keywords" && (
             <div className="space-y-3">
-              <KeywordTable data={positions.slice(0, 300)} showPosition showTraffic showUrl showKgr />
-              {positions.length < Math.min(totalPositions, 300) && (
+              <KeywordTable data={positions.slice(0, 200)} showPosition showTraffic showUrl showKgr />
+              {positions.length < Math.min(totalPositions, 200) && (
                 <div className="flex items-center justify-center">
                   <Button variant="outline" onClick={loadMorePositions} disabled={loadingMore} className="gap-2">
                     {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Charger plus ({positions.length} / {formatNum(Math.min(totalPositions, 300))})
+                    Charger plus ({positions.length} / {formatNum(Math.min(totalPositions, 200))})
                   </Button>
                 </div>
               )}
@@ -938,20 +933,20 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
     return sortDir === "asc" ? numA - numB : numB - numA;
   });
 
-  // Dynamic grid columns
-  const colParts: string[] = ["1fr"]; // keyword
+  // Build grid template with inline style (Tailwind v4 doesn't support dynamic grid-cols)
+  const colParts: string[] = ["1fr"];
   if (showPosition) colParts.push("60px");
   colParts.push("80px"); // volume
   colParts.push("70px"); // cpc
   if (showTraffic) colParts.push("80px");
   if (showKgr) colParts.push("70px");
-  if (!showTraffic && !showKgr) colParts.push("100px"); // competition fallback
-  if (showUrl) colParts.push("1fr");
-  const cols = `grid-cols-[${colParts.join("_")}]`;
+  if (!showTraffic && !showKgr) colParts.push("100px");
+  if (showUrl) colParts.push("1.5fr");
+  const gridStyle = { gridTemplateColumns: colParts.join(" ") };
 
-  function SortHeader({ label, field }: { label: string; field: string }) {
+  function SortHeader({ label, field, align }: { label: string; field: string; align?: "right" }) {
     return (
-      <button onClick={() => toggleSort(field)} className="flex items-center gap-1 hover:text-foreground transition-colors">
+      <button onClick={() => toggleSort(field)} className={`flex items-center gap-1 hover:text-foreground transition-colors ${align === "right" ? "justify-end" : ""}`}>
         {label}
         <ArrowUpDown className={`h-3 w-3 ${sortKey === field ? "text-primary" : ""}`} />
       </button>
@@ -962,13 +957,13 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
     <Card>
       <CardContent className="p-0">
         <div className="divide-y divide-border">
-          <div className={`grid gap-4 px-4 py-2 bg-muted/50 text-[11px] font-medium uppercase tracking-wider text-muted-foreground ${cols}`}>
+          <div className="grid gap-4 px-4 py-2 bg-muted/50 text-[11px] font-medium uppercase tracking-wider text-muted-foreground" style={gridStyle}>
             <SortHeader label="Mot cle" field="keyword" />
             {showPosition && <SortHeader label="Pos." field="position" />}
-            <SortHeader label="Volume" field="volume" />
-            <SortHeader label="CPC" field="cpc" />
-            {showTraffic && <SortHeader label="Trafic" field="traffic" />}
-            {showKgr && <SortHeader label="KGR" field="kgr" />}
+            <SortHeader label="Volume" field="volume" align="right" />
+            <SortHeader label="CPC" field="cpc" align="right" />
+            {showTraffic && <SortHeader label="Trafic" field="traffic" align="right" />}
+            {showKgr && <SortHeader label="KGR" field="kgr" align="right" />}
             {!showTraffic && !showKgr && <span>Concurrence</span>}
             {showUrl && <span>URL</span>}
           </div>
@@ -977,17 +972,17 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">Aucun resultat</div>
           ) : (
             sorted.map((kw, i) => (
-              <div key={i} className={`grid gap-4 px-4 py-2 hover:bg-muted/30 transition-colors items-center ${cols}`}>
+              <div key={i} className="grid gap-4 px-4 py-2 hover:bg-muted/30 transition-colors items-center" style={gridStyle}>
                 <span className="text-sm font-medium truncate">{kw.keyword}</span>
                 {showPosition && (
                   <span className={`inline-flex h-6 w-10 items-center justify-center rounded text-xs font-bold ${getPositionColor(kw.position)}`}>
                     {kw.position || "-"}
                   </span>
                 )}
-                <span className="text-sm font-medium">{formatNum(kw.volume)}</span>
-                <span className="text-sm text-muted-foreground">{kw.cpc != null && kw.cpc !== "NA" && !isNaN(Number(kw.cpc)) ? `${Number(kw.cpc).toFixed(2)} EUR` : "-"}</span>
-                {showTraffic && <span className="text-sm">{formatNum(kw.traffic)}</span>}
-                {showKgr && <KgrBadge value={kw.kgr} />}
+                <span className="text-sm font-medium text-right">{formatNum(kw.volume)}</span>
+                <span className="text-sm text-muted-foreground text-right">{kw.cpc != null && kw.cpc !== "NA" && !isNaN(Number(kw.cpc)) ? `${Number(kw.cpc).toFixed(2)} EUR` : "-"}</span>
+                {showTraffic && <span className="text-sm text-right">{formatNum(kw.traffic)}</span>}
+                {showKgr && <div className="text-right"><KgrBadge value={kw.kgr} /></div>}
                 {!showTraffic && !showKgr && <CompetitionBar value={kw.competition || 0} />}
                 {showUrl && <span className="text-xs text-muted-foreground truncate" title={kw.url}>{kw.url?.replace(/^https?:\/\/[^/]+/, "") || kw.url}</span>}
               </div>
