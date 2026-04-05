@@ -131,9 +131,12 @@ function LineChart({ data, height = 160, color = "#2563eb", label = "Valeur" }: 
 
   function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
-    // Use simple ratio mapping — avoids viewBox/preserveAspectRatio issues
     const relX = (e.clientX - rect.left) / rect.width;
-    const idx = Math.round(relX * (data.length - 1));
+    // Account for chart padding (left=48, right=12 out of viewBox width=600)
+    const padLeftRatio = padding.left / w;
+    const padRightRatio = padding.right / w;
+    const chartRelX = (relX - padLeftRatio) / (1 - padLeftRatio - padRightRatio);
+    const idx = Math.round(chartRelX * (data.length - 1));
     setHoverIdx(Math.max(0, Math.min(data.length - 1, idx)));
   }
 
@@ -963,7 +966,23 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
             <SortHeader label="Volume" field="volume" align="right" />
             <SortHeader label="CPC" field="cpc" align="right" />
             {showTraffic && <SortHeader label="Trafic" field="traffic" align="right" />}
-            {showKgr && <SortHeader label="KGR" field="kgr" align="right" />}
+            {showKgr && (
+              <div className="relative group flex items-center justify-end gap-1">
+                <SortHeader label="KGR" field="kgr" align="right" />
+                <span className="cursor-help text-muted-foreground/50 text-[10px]">?</span>
+                <div className="absolute right-0 top-full mt-1 z-50 hidden group-hover:block w-64 rounded-lg border border-border bg-popover p-3 shadow-lg text-left normal-case tracking-normal">
+                  <p className="text-xs font-semibold mb-1">Keyword Golden Ratio</p>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    KGR = nombre de resultats "allintitle" / volume de recherche mensuel.
+                  </p>
+                  <div className="mt-2 space-y-1 text-[11px]">
+                    <div className="flex items-center gap-2"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" /> &lt; 0.25 = opportunite facile</div>
+                    <div className="flex items-center gap-2"><span className="inline-block h-2 w-2 rounded-sm bg-amber-500" /> 0.25 - 1 = faisable</div>
+                    <div className="flex items-center gap-2"><span className="inline-block h-2 w-2 rounded-sm bg-red-500" /> &gt; 1 = tres competitif</div>
+                  </div>
+                </div>
+              </div>
+            )}
             {!showTraffic && !showKgr && <span>Concurrence</span>}
             {showUrl && <span>URL</span>}
           </div>
