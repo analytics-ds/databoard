@@ -130,21 +130,26 @@ function LineChart({ data, height = 160, color = "#2563eb", label = "Valeur" }: 
   const yTicks = [0, 0.25, 0.5, 0.75, 1];
 
   function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const relX = (e.clientX - rect.left) / rect.width;
-    // Account for chart padding (left=48, right=12 out of viewBox width=600)
-    const padLeftRatio = padding.left / w;
-    const padRightRatio = padding.right / w;
-    const chartRelX = (relX - padLeftRatio) / (1 - padLeftRatio - padRightRatio);
-    const idx = Math.round(chartRelX * (data.length - 1));
-    setHoverIdx(Math.max(0, Math.min(data.length - 1, idx)));
+    const svg = e.currentTarget;
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const svgPt = pt.matrixTransform(svg.getScreenCTM()!.inverse());
+    // Find closest data point to the SVG x coordinate
+    let closest = 0;
+    let closestDist = Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const dist = Math.abs(points[i].x - svgPt.x);
+      if (dist < closestDist) { closestDist = dist; closest = i; }
+    }
+    setHoverIdx(closest);
   }
 
   const hp = hoverIdx != null ? points[hoverIdx] : null;
 
   return (
     <div className="relative" onMouseLeave={() => setHoverIdx(null)}>
-      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }} onMouseMove={handleMouseMove}>
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full" style={{ height }} onMouseMove={handleMouseMove}>
         <defs>
           <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={color} stopOpacity="0.15" />
