@@ -1,13 +1,58 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Component, type ReactNode } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Loader2, Globe, BarChart3, ArrowUpDown, FileText } from "lucide-react";
+import { Search, Loader2, Globe, BarChart3, ArrowUpDown, FileText, AlertTriangle } from "lucide-react";
 import { getPositionColor } from "@/lib/constants";
+
+// Error Boundary to catch rendering crashes
+class SearchErrorBoundary extends Component<
+  { children: ReactNode; onReset?: () => void },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: "" };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: `${error.message || String(error)}\n\nStack: ${error.stack?.split("\n").slice(0, 3).join("\n") || ""}` };
+  }
+  componentDidCatch(error: Error, info: any) {
+    console.error("[KeywordResearch] Render crash:", error, info?.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card className="border-destructive/50">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <p className="font-medium text-destructive">Erreur d'affichage des resultats</p>
+                <p className="text-sm text-muted-foreground">{this.state.error}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    this.setState({ hasError: false, error: "" });
+                    this.props.onReset?.();
+                  }}
+                >
+                  Reessayer
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 async function haloscanCall(endpoint: string, params: Record<string, any>) {
   try {
@@ -149,9 +194,9 @@ export default function KeywordResearchPage() {
           <TabsTrigger value="domain" className="gap-2"><Globe className="h-4 w-4" />Analyse de domaine</TabsTrigger>
           <TabsTrigger value="bulk" className="gap-2"><FileText className="h-4 w-4" />Volumes en masse</TabsTrigger>
         </TabsList>
-        <TabsContent value="keywords"><KeywordTab /></TabsContent>
-        <TabsContent value="domain"><DomainTab /></TabsContent>
-        <TabsContent value="bulk"><BulkTab /></TabsContent>
+        <TabsContent value="keywords"><SearchErrorBoundary><KeywordTab /></SearchErrorBoundary></TabsContent>
+        <TabsContent value="domain"><SearchErrorBoundary><DomainTab /></SearchErrorBoundary></TabsContent>
+        <TabsContent value="bulk"><SearchErrorBoundary><BulkTab /></SearchErrorBoundary></TabsContent>
       </Tabs>
     </div>
   );
@@ -747,11 +792,16 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
     else { setSortKey(key); setSortDir("desc"); }
   }
 
-  const sorted = [...data].sort((a, b) => {
-    const av = a[sortKey] ?? 0;
-    const bv = b[sortKey] ?? 0;
-    if (typeof av === "string") return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
-    return sortDir === "asc" ? av - bv : bv - av;
+  // Ensure data is always an array
+  const safeData = Array.isArray(data) ? data : [];
+
+  const sorted = [...safeData].sort((a, b) => {
+    const av = a?.[sortKey] ?? 0;
+    const bv = b?.[sortKey] ?? 0;
+    if (typeof av === "string" && typeof bv === "string") return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+    const numA = Number(av) || 0;
+    const numB = Number(bv) || 0;
+    return sortDir === "asc" ? numA - numB : numB - numA;
   });
 
   const cols = showUrl ? "grid-cols-[1fr_1fr_80px_70px_80px_80px]"
@@ -792,7 +842,7 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
                   </span>
                 )}
                 <span className="text-sm font-medium">{formatNum(kw.volume)}</span>
-                <span className="text-sm text-muted-foreground">{kw.cpc != null ? `${Number(kw.cpc).toFixed(2)} EUR` : "-"}</span>
+                <span className="text-sm text-muted-foreground">{kw.cpc != null && kw.cpc !== "NA" && !isNaN(Number(kw.cpc)) ? `${Number(kw.cpc).toFixed(2)} EUR` : "-"}</span>
                 {showTraffic ? <span className="text-sm">{formatNum(kw.traffic)}</span> : <CompetitionBar value={kw.competition || 0} />}
                 {showUrl && <span className="text-xs text-muted-foreground truncate">{kw.url}</span>}
               </div>
