@@ -24,7 +24,12 @@ async function haloscanCall(endpoint: string, params: Record<string, any>) {
       const text = await res.text().catch(() => "");
       throw new Error(text || `Erreur ${res.status}`);
     }
-    return await res.json();
+    const data = await res.json();
+    // Worker returns { error: true, message } when Haloscan fails
+    if (data?.error === true) {
+      throw new Error(data.message || "Erreur API Haloscan");
+    }
+    return data;
   } catch (e: any) {
     if (e.name === "AbortError") throw new Error("Timeout: la requete a pris trop de temps");
     throw e;
@@ -164,6 +169,8 @@ function KeywordTab() {
     if (!query.trim()) return;
     setLoading(true);
     setError("");
+    setOverview(null);
+    setMatchResults([]);
     try {
       const [overviewRes, matchRes] = await Promise.allSettled([
         haloscanCall("keywords/overview", {
@@ -177,33 +184,51 @@ function KeywordTab() {
           order: "desc",
         }),
       ]);
-      if (overviewRes.status === "fulfilled") setOverview(overviewRes.value);
-      if (matchRes.status === "fulfilled") setMatchResults(matchRes.value.results || []);
-      if (overviewRes.status === "rejected" && matchRes.status === "rejected") {
-        setError("Erreur lors de la recherche. Verifiez votre cle API Haloscan.");
+      if (overviewRes.status === "fulfilled" && overviewRes.value) {
+        setOverview(overviewRes.value);
       }
-    } catch {
-      setError("Erreur lors de la recherche.");
+      if (matchRes.status === "fulfilled" && matchRes.value) {
+        const val = matchRes.value;
+        setMatchResults(val.results || val.data || []);
+      }
+      if (overviewRes.status === "rejected" && matchRes.status === "rejected") {
+        const msg = overviewRes.reason?.message || "Erreur inconnue";
+        setError(`Erreur lors de la recherche: ${msg}`);
+      }
+    } catch (e: any) {
+      setError(e.message || "Erreur lors de la recherche.");
     } finally {
       setLoading(false);
     }
   }
 
-  const seoMetrics = overview?.seo_metrics || {};
+  // Support both real Haloscan format and demo data format
+  const seoMetrics = overview?.seo_metrics || overview?.data?.metrics || {};
   const adsMetrics = overview?.ads_metrics || {};
-  const volume = adsMetrics.volume || seoMetrics.volume || 0;
-  const cpc = adsMetrics.cpc || 0;
-  const competition = adsMetrics.competition || 0;
+  const volume = Number(adsMetrics.volume || seoMetrics.volume || 0) || 0;
+  const cpc = Number(adsMetrics.cpc || seoMetrics.cpc || 0) || 0;
+  const competition = Number(adsMetrics.competition || seoMetrics.competition || 0) || 0;
 
   const volumeHistory: { label: string; value: number }[] = [];
-  if (overview?.volume_history?.results) {
-    const entries = Object.entries(overview.volume_history.results) as [string, number][];
+  // Real API: overview.volume_history.results = { timestamp: volume, ... }
+  // Demo: overview.data.volume_history = [{ date, volume }, ...]
+  const volHistRaw = overview?.volume_history?.results;
+  const volHistDemo = overview?.data?.volume_history;
+  if (volHistRaw && typeof volHistRaw === "object" && !Array.isArray(volHistRaw)) {
+    const entries = Object.entries(volHistRaw) as [string, number][];
     entries.sort(([a], [b]) => Number(a) - Number(b));
     for (const [ts, vol] of entries.slice(-24)) {
       const d = new Date(Number(ts) * 1000);
       volumeHistory.push({
         label: d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
-        value: vol,
+        value: Number(vol) || 0,
+      });
+    }
+  } else if (Array.isArray(volHistDemo)) {
+    for (const item of volHistDemo.slice(-24)) {
+      volumeHistory.push({
+        label: item.date || "",
+        value: Number(item.volume) || 0,
       });
     }
   }
@@ -252,9 +277,9 @@ function KeywordTab() {
             <Card>
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground mb-1">CPC moyen</p>
-                <p className="text-2xl font-bold">{cpc.toFixed(2)} EUR</p>
+                <p className="text-2xl font-bold">{Number(cpc).toFixed(2)} EUR</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  KGR: {seoMetrics.kgr?.toFixed(2) || "-"}
+                  KGR: {seoMetrics.kgr != null ? Number(seoMetrics.kgr).toFixed(2) : "-"}
                 </p>
               </CardContent>
             </Card>
@@ -311,15 +336,24 @@ function StackedPositionsChart({ data }: { data: any[] }) {
   const chartW = w - padding.left - padding.right;
   const chartH = h - padding.top - padding.bottom;
 
-  const parsed = data.map((d) => ({
-    date: d.search_date,
-    label: new Date(d.search_date).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
-    top3: d.top_3_positions || 0,
-    top10: (d.top_10_positions || 0) - (d.top_3_positions || 0),
-    top50: (d.top_50_positions || 0) - (d.top_10_positions || 0),
-    top100: (d.top_100_positions || 0) - (d.top_50_positions || 0),
-    total: d.top_100_positions || 0,
-  }));
+  const parsed = data.map((d) => {
+    const dateStr = d.search_date || d.date || "";
+    let label = dateStr;
+    try { label = new Date(dateStr).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }); } catch {}
+    const top3 = Number(d.top_3_positions || d.top_3 || 0) || 0;
+    const top10Raw = Number(d.top_10_positions || d.top_10 || 0) || 0;
+    const top50Raw = Number(d.top_50_positions || d.top_50 || 0) || 0;
+    const top100Raw = Number(d.top_100_positions || d.top_100 || 0) || 0;
+    return {
+      date: dateStr,
+      label,
+      top3,
+      top10: Math.max(0, top10Raw - top3),
+      top50: Math.max(0, top50Raw - top10Raw),
+      top100: Math.max(0, top100Raw - top50Raw),
+      total: top100Raw,
+    };
+  });
 
   const max = Math.max(...parsed.map((d) => d.total));
   const barW = Math.max(2, (chartW / parsed.length) - 1);
@@ -415,18 +449,27 @@ function DomainTab() {
           lineCount: 10,
         }),
       ]);
-      if (overviewRes.status === "fulfilled") setData(overviewRes.value);
-      if (posRes.status === "fulfilled") {
-        setPositions(posRes.value.results || []);
-        setTotalPositions(posRes.value.total_result_count || posRes.value.filtered_result_count || 0);
+      if (overviewRes.status === "fulfilled" && overviewRes.value) {
+        const val = overviewRes.value;
+        // Support both real API format and demo format
+        setData(val.data ? val.data : val);
+      }
+      if (posRes.status === "fulfilled" && posRes.value) {
+        const val = posRes.value;
+        setPositions(val.results || val.data || []);
+        setTotalPositions(val.total_result_count || val.filtered_result_count || val.meta?.total || 0);
         setPositionPage(1);
       }
-      if (compRes.status === "fulfilled") setCompetitors(compRes.value.results || []);
-      if (overviewRes.status === "rejected" && posRes.status === "rejected") {
-        setError("Erreur lors de l'analyse. Verifiez le domaine et votre cle API.");
+      if (compRes.status === "fulfilled" && compRes.value) {
+        const val = compRes.value;
+        setCompetitors(val.results || val.data || []);
       }
-    } catch {
-      setError("Erreur lors de l'analyse.");
+      if (overviewRes.status === "rejected" && posRes.status === "rejected") {
+        const msg = overviewRes.reason?.message || "Erreur inconnue";
+        setError(`Erreur lors de l'analyse: ${msg}`);
+      }
+    } catch (e: any) {
+      setError(e.message || "Erreur lors de l'analyse.");
     } finally {
       setLoading(false);
     }
@@ -444,20 +487,22 @@ function DomainTab() {
         order_by: "traffic",
         order: "desc",
       });
-      setPositions((prev) => [...prev, ...(res.results || [])]);
+      setPositions((prev) => [...prev, ...(res.results || res.data || [])]);
       setPositionPage(nextPage);
     } catch {} finally {
       setLoadingMore(false);
     }
   }
 
-  const stats = data?.metrics?.stats;
-  const posBreakdown = data?.positions_breakdown_history?.results || [];
-  const visHistory = (data?.visibility_index_history?.results || []).map((p: any) => ({
-    label: new Date(p.agg_date).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
-    value: p.visibility_index || 0,
-  }));
-  const bestPages = data?.best_pages?.results || [];
+  // Support real API format (metrics.stats) and demo format (metrics directly)
+  const stats = data?.metrics?.stats || data?.metrics || null;
+  const posBreakdown = data?.positions_breakdown_history?.results || data?.positions_breakdown_history || [];
+  const visHistoryRaw = data?.visibility_index_history?.results || data?.visibility_index_history || [];
+  const visHistory = Array.isArray(visHistoryRaw) ? visHistoryRaw.map((p: any) => ({
+    label: (() => { try { return new Date(p.agg_date || p.date).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }); } catch { return p.date || ""; } })(),
+    value: Number(p.visibility_index || p.index || 0) || 0,
+  })) : [];
+  const bestPages = data?.best_pages?.results || data?.best_pages || [];
 
   return (
     <div className="space-y-6">
@@ -649,8 +694,8 @@ function BulkTab() {
     try {
       const res = await haloscanCall("keywords/bulk", { keywords: kws });
       setResults(res.results || res.data || []);
-    } catch {
-      setError("Erreur lors de la recuperation des volumes.");
+    } catch (e: any) {
+      setError(e.message || "Erreur lors de la recuperation des volumes.");
     } finally {
       setLoading(false);
     }

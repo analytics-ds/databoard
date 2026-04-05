@@ -52,13 +52,30 @@ export async function handleHaloscan(request: Request, env: Env): Promise<Respon
         body: JSON.stringify(params),
       });
 
-      const data = await res.json();
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+
       if (!res.ok) {
-        return jsonResponse({ error: `Haloscan: ${res.status}`, details: data }, res.status);
+        // Don't forward Haloscan error status — return 200 with error info
+        // so the frontend can handle it gracefully
+        return jsonResponse({
+          error: true,
+          status: res.status,
+          message: `Haloscan a retourné une erreur ${res.status}`,
+          details: data,
+        });
       }
       return jsonResponse(data);
     } catch (e: any) {
-      return jsonResponse({ error: "Erreur Haloscan", details: e.message }, 500);
+      return jsonResponse({
+        error: true,
+        message: "Impossible de contacter l'API Haloscan",
+        details: e.message,
+      });
     }
   }
 
