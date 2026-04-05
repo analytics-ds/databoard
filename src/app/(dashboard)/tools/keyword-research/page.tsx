@@ -99,11 +99,14 @@ function CompetitionBar({ value }: { value: number }) {
   );
 }
 
-function LineChart({ data, height = 160, color = "#2563eb" }: {
+function LineChart({ data, height = 160, color = "#2563eb", label = "Valeur" }: {
   data: { label: string; value: number }[];
   height?: number;
   color?: string;
+  label?: string;
 }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+
   if (data.length < 2) return null;
   const padding = { top: 28, right: 12, bottom: 28, left: 48 };
   const w = 600;
@@ -123,60 +126,79 @@ function LineChart({ data, height = 160, color = "#2563eb" }: {
   const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
   const areaPath = `${linePath} L${points[points.length - 1].x},${padding.top + chartH} L${points[0].x},${padding.top + chartH} Z`;
 
-  // Smart label stepping: show ~6-8 labels max
   const labelStep = Math.max(1, Math.ceil(data.length / 7));
-  // Smart value stepping: show ~5-6 values max
-  const valueStep = Math.max(1, Math.ceil(data.length / 5));
-  // Y-axis: 5 ticks
   const yTicks = [0, 0.25, 0.5, 0.75, 1];
 
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = ((e.clientX - rect.left) / rect.width) * w;
+    // Find closest point
+    let closest = 0;
+    let closestDist = Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const dist = Math.abs(points[i].x - mouseX);
+      if (dist < closestDist) { closestDist = dist; closest = i; }
+    }
+    setHoverIdx(closest);
+  }
+
+  const hp = hoverIdx != null ? points[hoverIdx] : null;
+
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }}>
-      <defs>
-        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.15" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {/* Grid lines + Y-axis labels */}
-      {yTicks.map((pct) => {
-        const yVal = min + range * pct;
-        return (
-          <g key={pct}>
-            <line x1={padding.left} y1={padding.top + chartH * (1 - pct)} x2={w - padding.right} y2={padding.top + chartH * (1 - pct)} stroke="#e5e7eb" strokeWidth="0.5" />
-            <text x={padding.left - 6} y={padding.top + chartH * (1 - pct) + 3} textAnchor="end" className="text-[9px] fill-muted-foreground">
-              {yVal >= 1000 ? `${(yVal / 1000).toFixed(1)}k` : Math.round(yVal * 10) / 10}
+    <div className="relative" onMouseLeave={() => setHoverIdx(null)}>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }} onMouseMove={handleMouseMove}>
+        <defs>
+          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.15" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {yTicks.map((pct) => {
+          const yVal = min + range * pct;
+          return (
+            <g key={pct}>
+              <line x1={padding.left} y1={padding.top + chartH * (1 - pct)} x2={w - padding.right} y2={padding.top + chartH * (1 - pct)} stroke="#e5e7eb" strokeWidth="0.5" />
+              <text x={padding.left - 6} y={padding.top + chartH * (1 - pct) + 3} textAnchor="end" className="text-[9px] fill-muted-foreground">
+                {yVal >= 1000 ? `${(yVal / 1000).toFixed(1)}k` : Math.round(yVal * 10) / 10}
+              </text>
+            </g>
+          );
+        })}
+        <path d={areaPath} fill="url(#chartGrad)" />
+        <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {/* Dots — small for many points */}
+        {data.length <= 30 && points.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={i === hoverIdx ? 5 : 2.5} fill={i === hoverIdx ? color : "white"} stroke={color} strokeWidth="1.5" className="transition-all duration-100" />
+        ))}
+        {/* Hover vertical line */}
+        {hp && (
+          <line x1={hp.x} y1={padding.top} x2={hp.x} y2={padding.top + chartH} stroke={color} strokeWidth="1" strokeDasharray="3,3" opacity="0.5" />
+        )}
+        {/* X-axis labels */}
+        {points.map((p, i) => {
+          if (i % labelStep !== 0 && i !== data.length - 1) return null;
+          return (
+            <text key={`l${i}`} x={p.x} y={h - 6} textAnchor="middle" className="text-[9px] fill-muted-foreground">
+              {p.label}
             </text>
-          </g>
-        );
-      })}
-      {/* Area fill */}
-      <path d={areaPath} fill="url(#chartGrad)" />
-      {/* Line */}
-      <path d={linePath} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {/* Dots — only show for small datasets */}
-      {data.length <= 24 && points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="3" fill="white" stroke={color} strokeWidth="1.5" />
-      ))}
-      {/* Values — show sparsely */}
-      {points.map((p, i) => {
-        if (i % valueStep !== 0 && i !== data.length - 1) return null;
-        return (
-          <text key={`v${i}`} x={p.x} y={p.y - 10} textAnchor="middle" className="text-[9px] fill-muted-foreground font-medium">
-            {p.value >= 1000 ? `${(p.value / 1000).toFixed(1)}k` : Math.round(p.value * 10) / 10}
-          </text>
-        );
-      })}
-      {/* X-axis labels */}
-      {points.map((p, i) => {
-        if (i % labelStep !== 0 && i !== data.length - 1) return null;
-        return (
-          <text key={`l${i}`} x={p.x} y={h - 6} textAnchor="middle" className="text-[9px] fill-muted-foreground">
-            {p.label}
-          </text>
-        );
-      })}
-    </svg>
+          );
+        })}
+      </svg>
+      {/* Tooltip */}
+      {hp && (
+        <div
+          className="absolute z-50 rounded-lg border border-border bg-popover px-3 py-2 shadow-lg pointer-events-none"
+          style={{ left: `${Math.min((hp.x / w) * 100, 75)}%`, top: 0 }}
+        >
+          <p className="text-xs font-semibold">{hp.label}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+            <span className="text-xs text-muted-foreground">{label}:</span>
+            <span className="text-xs font-bold">{hp.value >= 1000 ? `${(hp.value / 1000).toFixed(1)}k` : Math.round(hp.value * 10) / 10}</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -385,6 +407,8 @@ function KeywordTab() {
 }
 
 function StackedPositionsChart({ data }: { data: any[] }) {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; data: any } | null>(null);
+
   if (data.length < 2) return null;
 
   // Aggregate daily data to monthly (last value per month)
@@ -394,7 +418,7 @@ function StackedPositionsChart({ data }: { data: any[] }) {
     try {
       const dt = new Date(dateStr);
       const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
-      const label = dt.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+      const label = dt.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
       monthlyMap.set(key, {
         label,
         top3: Number(d.top_3_positions || d.top_3 || 0) || 0,
@@ -409,11 +433,15 @@ function StackedPositionsChart({ data }: { data: any[] }) {
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([, v]) => ({
       label: v.label,
+      shortLabel: v.label.split(" ").map((w, i) => i === 0 ? w.slice(0, 4) + "." : w.slice(2)).join(" "),
       top3: v.top3,
       top10: Math.max(0, v.top10Raw - v.top3),
       top50: Math.max(0, v.top50Raw - v.top10Raw),
       top100: Math.max(0, v.top100Raw - v.top50Raw),
       total: v.top100Raw,
+      top10Raw: v.top10Raw,
+      top50Raw: v.top50Raw,
+      top100Raw: v.top100Raw,
     }));
 
   if (parsed.length < 2) return null;
@@ -427,10 +455,10 @@ function StackedPositionsChart({ data }: { data: any[] }) {
   const barW = Math.max(4, (chartW / parsed.length) - 2);
 
   const bands = [
-    { key: "top3" as const, color: "#10b981" },
-    { key: "top10" as const, color: "#3b82f6" },
-    { key: "top50" as const, color: "#f59e0b" },
-    { key: "top100" as const, color: "#f97316" },
+    { key: "top3" as const, color: "#10b981", label: "Top 1-3" },
+    { key: "top10" as const, color: "#3b82f6", label: "Top 4-10" },
+    { key: "top50" as const, color: "#f59e0b", label: "Top 11-50" },
+    { key: "top100" as const, color: "#f97316", label: "Top 51-100" },
   ];
 
   function formatAxis(n: number) {
@@ -439,7 +467,7 @@ function StackedPositionsChart({ data }: { data: any[] }) {
   }
 
   return (
-    <div>
+    <div className="relative" onMouseLeave={() => setTooltip(null)}>
       <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: h }}>
         {[0, 0.25, 0.5, 0.75, 1].map((pct) => (
           <g key={pct}>
@@ -451,7 +479,12 @@ function StackedPositionsChart({ data }: { data: any[] }) {
           const x = padding.left + (i / parsed.length) * chartW;
           let y = padding.top + chartH;
           return (
-            <g key={i}>
+            <g key={i} className="cursor-pointer" onMouseEnter={(e) => {
+              const rect = e.currentTarget.closest("svg")!.getBoundingClientRect();
+              setTooltip({ x: (e.clientX - rect.left), y: (e.clientY - rect.top - 10), data: d });
+            }}>
+              {/* Invisible hit area for the full column */}
+              <rect x={x - 1} y={padding.top} width={barW + 2} height={chartH} fill="transparent" />
               {bands.map((band) => {
                 const val = d[band.key];
                 const barH = max > 0 ? (val / max) * chartH : 0;
@@ -459,19 +492,41 @@ function StackedPositionsChart({ data }: { data: any[] }) {
                 return <rect key={band.key} x={x} y={y} width={barW} height={barH} fill={band.color} opacity="0.85" rx="1" />;
               })}
               {i % Math.max(1, Math.ceil(parsed.length / 8)) === 0 && (
-                <text x={x + barW / 2} y={h - 6} textAnchor="middle" className="text-[9px] fill-muted-foreground">{d.label}</text>
+                <text x={x + barW / 2} y={h - 6} textAnchor="middle" className="text-[9px] fill-muted-foreground">{d.shortLabel}</text>
               )}
             </g>
           );
         })}
       </svg>
+      {/* Tooltip */}
+      {tooltip && (
+        <div
+          className="absolute z-50 rounded-lg border border-border bg-popover px-3 py-2 shadow-lg pointer-events-none"
+          style={{ left: Math.min(tooltip.x, 500), top: tooltip.y - 100 }}
+        >
+          <p className="text-xs font-semibold mb-1.5">{tooltip.data.label}</p>
+          <div className="space-y-0.5">
+            {[
+              { label: "Top 1-3", value: tooltip.data.top3, color: "#10b981" },
+              { label: "Top 4-10", value: tooltip.data.top10, color: "#3b82f6" },
+              { label: "Top 11-50", value: tooltip.data.top50, color: "#f59e0b" },
+              { label: "Top 51-100", value: tooltip.data.top100, color: "#f97316" },
+            ].map((row) => (
+              <div key={row.label} className="flex items-center gap-2 text-xs">
+                <div className="h-2 w-2 rounded-sm shrink-0" style={{ backgroundColor: row.color }} />
+                <span className="text-muted-foreground">{row.label}</span>
+                <span className="font-medium ml-auto">{formatNum(row.value)}</span>
+              </div>
+            ))}
+            <div className="border-t border-border pt-1 mt-1 flex justify-between text-xs">
+              <span className="text-muted-foreground">Total</span>
+              <span className="font-bold">{formatNum(tooltip.data.total)}</span>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-center gap-4 mt-2">
-        {[
-          { label: "Top 1-3", color: "#10b981" },
-          { label: "Top 4-10", color: "#3b82f6" },
-          { label: "Top 11-50", color: "#f59e0b" },
-          { label: "Top 51-100", color: "#f97316" },
-        ].map((l) => (
+        {bands.map((l) => (
           <div key={l.label} className="flex items-center gap-1.5">
             <div className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: l.color }} />
             <span className="text-[10px] text-muted-foreground">{l.label}</span>
@@ -492,7 +547,8 @@ function DomainTab() {
   const [totalPositions, setTotalPositions] = useState(0);
   const [positionPage, setPositionPage] = useState(1);
   const [competitors, setCompetitors] = useState<any[]>([]);
-  const [domainSubTab, setDomainSubTab] = useState<"overview" | "keywords" | "pages" | "competitors">("overview");
+  const [topPages, setTopPages] = useState<any[]>([]);
+  const [domainSubTab, setDomainSubTab] = useState<"keywords" | "pages" | "competitors">("keywords");
 
   async function handleSearch() {
     if (!domain.trim()) return;
@@ -501,8 +557,9 @@ function DomainTab() {
     setPositions([]);
     setData(null);
     setCompetitors([]);
+    setTopPages([]);
     try {
-      const [overviewRes, posRes, compRes] = await Promise.allSettled([
+      const [overviewRes, posRes, compRes, pagesRes] = await Promise.allSettled([
         haloscanCall("domains/overview", {
           input: domain.trim(),
           mode: "domain",
@@ -521,10 +578,14 @@ function DomainTab() {
           mode: "domain",
           lineCount: 10,
         }),
+        haloscanCall("domains/topPages", {
+          input: domain.trim(),
+          mode: "domain",
+          lineCount: 20,
+        }),
       ]);
       if (overviewRes.status === "fulfilled" && overviewRes.value) {
         const val = overviewRes.value;
-        // Support both real API format and demo format
         setData(val.data ? val.data : val);
       }
       if (posRes.status === "fulfilled" && posRes.value) {
@@ -536,6 +597,10 @@ function DomainTab() {
       if (compRes.status === "fulfilled" && compRes.value) {
         const val = compRes.value;
         setCompetitors(val.results || val.data || []);
+      }
+      if (pagesRes.status === "fulfilled" && pagesRes.value) {
+        const val = pagesRes.value;
+        setTopPages(val.results || val.data || []);
       }
       if (overviewRes.status === "rejected" && posRes.status === "rejected") {
         const msg = overviewRes.reason?.message || "Erreur inconnue";
@@ -682,7 +747,7 @@ function DomainTab() {
                 <CardTitle className="text-sm">Indice de visibilite de {domain}</CardTitle>
               </CardHeader>
               <CardContent>
-                <LineChart data={visHistory} height={180} />
+                <LineChart data={visHistory} height={180} label="Indice de visibilite" />
               </CardContent>
             </Card>
           )}
@@ -690,8 +755,8 @@ function DomainTab() {
           {/* Sub-tabs */}
           <div className="flex gap-1 border-b border-border">
             {[
-              { id: "keywords" as const, label: `Top mots cles (${Math.min(positions.length, 300)})` },
-              { id: "pages" as const, label: `Top pages (${bestPages.length})` },
+              { id: "keywords" as const, label: `Top mots cles (${formatNum(totalPositions)})` },
+              { id: "pages" as const, label: `Top pages (${topPages.length || bestPages.length})` },
               { id: "competitors" as const, label: `Concurrents (${competitors.length})` },
             ].map((t) => (
               <button key={t.id} onClick={() => setDomainSubTab(t.id)} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${domainSubTab === t.id ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
@@ -702,7 +767,7 @@ function DomainTab() {
 
           {domainSubTab === "keywords" && (
             <div className="space-y-3">
-              <KeywordTable data={positions.slice(0, 300)} showPosition showTraffic showUrl />
+              <KeywordTable data={positions.slice(0, 300)} showPosition showTraffic showUrl showKgr />
               {positions.length < Math.min(totalPositions, 300) && (
                 <div className="flex items-center justify-center">
                   <Button variant="outline" onClick={loadMorePositions} disabled={loadingMore} className="gap-2">
@@ -714,19 +779,31 @@ function DomainTab() {
             </div>
           )}
 
-          {domainSubTab === "pages" && bestPages.length > 0 && (
+          {domainSubTab === "pages" && (topPages.length > 0 || bestPages.length > 0) && (
             <Card>
               <CardContent className="p-0">
                 <div className="divide-y divide-border">
-                  <div className="grid grid-cols-[1fr_100px_100px] gap-4 px-4 py-2 bg-muted/50 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <div className="grid grid-cols-[1fr_90px_90px_90px_90px] gap-4 px-4 py-2 bg-muted/50 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                     <span>URL</span>
                     <span className="text-right">Mots cles</span>
+                    <span className="text-right">Top 10</span>
+                    <span className="text-right">Top 3</span>
                     <span className="text-right">Trafic</span>
                   </div>
-                  {bestPages.slice(0, 100).map((page: any, i: number) => (
-                    <div key={i} className="grid grid-cols-[1fr_100px_100px] gap-4 px-4 py-2.5 hover:bg-muted/30 transition-colors">
-                      <span className="truncate text-sm text-primary">{page.url}</span>
-                      <span className="text-right text-sm">{formatNum(page.unique_keywords)}</span>
+                  {(topPages.length > 0 ? topPages : bestPages).slice(0, 20).map((page: any, i: number) => (
+                    <div key={i} className="grid grid-cols-[1fr_90px_90px_90px_90px] gap-4 px-4 py-2.5 hover:bg-muted/30 transition-colors items-center">
+                      <span className="truncate text-sm text-primary" title={page.url}>{page.url?.replace(/^https?:\/\/[^/]+/, "") || page.url}</span>
+                      <span className="text-right text-sm">{formatNum(page.unique_keywords || page.total_top_100)}</span>
+                      <span className="text-right text-sm">
+                        <span className="inline-flex items-center justify-center rounded bg-blue-50 text-blue-700 px-1.5 py-0.5 text-xs font-medium">
+                          {formatNum(page.total_top_10)}
+                        </span>
+                      </span>
+                      <span className="text-right text-sm">
+                        <span className="inline-flex items-center justify-center rounded bg-emerald-50 text-emerald-700 px-1.5 py-0.5 text-xs font-medium">
+                          {formatNum(page.total_top_3)}
+                        </span>
+                      </span>
                       <span className="text-right text-sm font-medium">{formatNum(page.total_traffic)}</span>
                     </div>
                   ))}
@@ -828,11 +905,19 @@ function BulkTab() {
   );
 }
 
-function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl = false }: {
+function KgrBadge({ value }: { value: any }) {
+  if (value == null || value === "NA" || isNaN(Number(value))) return <span className="text-xs text-muted-foreground">-</span>;
+  const n = Number(value);
+  const color = n < 0.25 ? "bg-emerald-50 text-emerald-700" : n < 1 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700";
+  return <span className={`inline-flex items-center justify-center rounded px-1.5 py-0.5 text-xs font-medium ${color}`}>{n.toFixed(2)}</span>;
+}
+
+function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl = false, showKgr = false }: {
   data: any[];
   showPosition?: boolean;
   showTraffic?: boolean;
   showUrl?: boolean;
+  showKgr?: boolean;
 }) {
   const [sortKey, setSortKey] = useState<string>("volume");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -842,7 +927,6 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
     else { setSortKey(key); setSortDir("desc"); }
   }
 
-  // Ensure data is always an array
   const safeData = Array.isArray(data) ? data : [];
 
   const sorted = [...safeData].sort((a, b) => {
@@ -854,9 +938,16 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
     return sortDir === "asc" ? numA - numB : numB - numA;
   });
 
-  const cols = showUrl ? "grid-cols-[1fr_1fr_80px_70px_80px_80px]"
-    : showPosition ? "grid-cols-[1fr_60px_80px_70px_80px]"
-    : "grid-cols-[1fr_80px_70px_100px]";
+  // Dynamic grid columns
+  const colParts: string[] = ["1fr"]; // keyword
+  if (showPosition) colParts.push("60px");
+  colParts.push("80px"); // volume
+  colParts.push("70px"); // cpc
+  if (showTraffic) colParts.push("80px");
+  if (showKgr) colParts.push("70px");
+  if (!showTraffic && !showKgr) colParts.push("100px"); // competition fallback
+  if (showUrl) colParts.push("1fr");
+  const cols = `grid-cols-[${colParts.join("_")}]`;
 
   function SortHeader({ label, field }: { label: string; field: string }) {
     return (
@@ -876,7 +967,9 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
             {showPosition && <SortHeader label="Pos." field="position" />}
             <SortHeader label="Volume" field="volume" />
             <SortHeader label="CPC" field="cpc" />
-            {showTraffic ? <SortHeader label="Trafic" field="traffic" /> : <span>Concurrence</span>}
+            {showTraffic && <SortHeader label="Trafic" field="traffic" />}
+            {showKgr && <SortHeader label="KGR" field="kgr" />}
+            {!showTraffic && !showKgr && <span>Concurrence</span>}
             {showUrl && <span>URL</span>}
           </div>
 
@@ -893,8 +986,10 @@ function KeywordTable({ data, showPosition = false, showTraffic = false, showUrl
                 )}
                 <span className="text-sm font-medium">{formatNum(kw.volume)}</span>
                 <span className="text-sm text-muted-foreground">{kw.cpc != null && kw.cpc !== "NA" && !isNaN(Number(kw.cpc)) ? `${Number(kw.cpc).toFixed(2)} EUR` : "-"}</span>
-                {showTraffic ? <span className="text-sm">{formatNum(kw.traffic)}</span> : <CompetitionBar value={kw.competition || 0} />}
-                {showUrl && <span className="text-xs text-muted-foreground truncate">{kw.url}</span>}
+                {showTraffic && <span className="text-sm">{formatNum(kw.traffic)}</span>}
+                {showKgr && <KgrBadge value={kw.kgr} />}
+                {!showTraffic && !showKgr && <CompetitionBar value={kw.competition || 0} />}
+                {showUrl && <span className="text-xs text-muted-foreground truncate" title={kw.url}>{kw.url?.replace(/^https?:\/\/[^/]+/, "") || kw.url}</span>}
               </div>
             ))
           )}
